@@ -1,0 +1,280 @@
+---
+name: ARK-4 Bugs/Issues
+description: "File a bug/issue for any issues related to ARK-4"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to fill out and document any bugs.
+  - type: dropdown
+    id: model
+    attributes:
+      label: PSP/Vita Model
+      description: "Please specify which device is affected/you have."
+      multiple: true
+      options:
+          - Any
+          - DTP-H1500 (Testing Tool)
+          - DTP-T1000 (Development Unit)
+          - PSP-1000 (Fat)
+          - PSP-2000 (Slim)
+          - PSP-3000 (Slim & Bright)
+          - PSP-N1000 (PSP Go)
+          - PSP-E1000 (Street)
+          - PCH-1000/1100 (Vita Fat)
+          - PCH-2000 (Vita Slim)
+          - VTE-1000 (Vita TV)
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: ARK Version
+      description: "Enter Ark Release here (press Select it shows the version at the top of vshmenu). If using beta build put commit version."
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Homebrew/GAME (if applicable)
+      description: "If using retail game please add GAME ID i.e: UCUS-98713"
+  - type: textarea
+    attributes:
+      label: Plugins ( if applicable )
+      description: "Please list all plugins here. You can just copy & paste your PLUGINS.TXT here."
+      placeholder: |
+        "vsh, ms0:/seplugins/category_lite.prx, on" 
+        "game, ms0:/seplugins/prxshot.prx, off" 
+        "etc.."
+        
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to reproduce
+      description: "Step-by-step on how to reproduce the bug/issue:"
+      placeholder: |
+        1.
+        2.
+        3.
+        4.
+    validations:
+      required: true
+        
+  - type: markdown
+    attributes:
+      value: "<h2>Recovery settings</h2>"
+
+  - type: dropdown
+    id: usb-charge
+    attributes:
+      label: USB Charge
+      options:
+       - "Off"
+       - "On"
+    validations:
+      required: true
+    
+  - type: dropdown
+    id: clock-game
+    attributes:
+      label: CPU Clock in Game
+      options:
+       - Auto
+       - Overclock
+       - Balanced
+       - PowerSave
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: clock-menu
+    attributes:
+      label: CPU Clock in XMB
+      options:
+       - Auto
+       - Overclock
+       - Balanced
+       - PowerSave
+    validations:
+      required: true
+
+  - type: dropdown
+    id: wpa2
+    attributes:
+      label: WPA2
+      options:
+       - "Off"
+       - "On"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: autoboot
+    attributes:
+      label: Autoboot Launcher
+      options:
+        - "Off"
+        - "On"
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: disable-psp-go-pause
+    attributes:
+      label: Disable PSP Go Pause
+      options:
+       - "Off"
+       - "On"
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: old-plugin-support
+    attributes:
+      label: Old Plugin Support on ef0
+      options:
+       - "Off"
+       - "On"
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: keep-psp-go-pause-file
+    attributes:
+      label: Prevent hibernation deletion
+      options:
+       - "Off"
+       - "On"
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: unlock-extra-mem
+    attributes:
+      label: Use Extra Memory
+      options:
+       - Auto
+       - Forced
+    validations:
+      required: true
+        
+  - type: dropdown
+    id: memory-stick-speedup
+    attributes:
+      label: Memory Stick Speedup
+      options:
+       - "Off"
+       - "On"
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: inferno-cache
+    attributes:
+      label: Inferno Cache 
+      options:
+       - "Off"
+       - LRU
+       - RR
+    validations:
+      required: true
+
+  - type: dropdown
+    id: Skip-Sony-Logos 
+    attributes:
+       label: Skip Sony Logos 
+       options:
+        - "Off"
+        - All
+        - GameBoot
+        - ColdBoot
+    validations:
+       required: true
+
+  - type: dropdown
+    id: Hide-PIC0-and_PIC1 
+    attributes:
+       label: Hide PIC0 and PIC1
+       options:
+        - "Off"
+        - "On"
+    validations:
+       required: true
+
+  - type: dropdown
+    id: Hide-MAC-Address 
+    attributes:
+       label: Hide MAC Address
+       options:
+        - "Off"
+        - "On"
+    validations:
+       required: true
+
+  - type: dropdown
+    id: Hide-DLC 
+    attributes:
+       label: Hide DLC 
+       options:
+        - "Off"
+        - "On"
+    validations:
+       required: true
+
+  - type: dropdown
+    id: Turn-off-LEDs 
+    attributes:
+       label: Turn off LEDs 
+       options:
+        - "Off"
+        - "On"
+    validations:
+       required: true
+
+  - type: dropdown
+    id: umd-drive
+    attributes:
+       label: Disable UMD Drive
+       options:
+        - "Off"
+        - "On"
+    validations:
+       required: true
+
+  - type: dropdown
+    id: analog-stick
+    attributes:
+       label: Disable Analog Stick
+       options:
+        - "Off"
+        - "On"
+    validations:
+       required: true
+
+  - type: dropdown
+    id: qa-flags
+    attributes:
+       label: Enable QA Flags
+       options:
+        - "Off"
+        - "On"
+    validations:
+       required: true
+
+  - type: textarea
+    attributes:
+      label: Custom settings
+      description: "Please list all additional settings from SETTINGS.TXT here if you have any. You can learn about it [here](https://github.com/PSP-Archive/ARK-4/wiki/settings)."
+      placeholder: |
+        "ABXY01234, overclock, on" 
+        "XYAB12345, infernocache:rr, on" 
+        "etc.."
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Verification of form.
+      description: Verify that you have indeed selected options above and filled out request properly and in full. 
+      options:
+        - label: I agree that I properly filled out the items listed above.
+          required: true
+

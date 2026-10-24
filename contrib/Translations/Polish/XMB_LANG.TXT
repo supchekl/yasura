@@ -1,0 +1,25 @@
+ARK-4 Updater
+Ustawienia niestandardowego oprogramowania układowego
+Menedżer wtyczek
+Niestandardowy program uruchamiający
+Ładowanie przez USB
+Zegar procesora w grze
+Zegar procesora w XMB
+WPA2
+Autoboot Launcher
+Wyłącz pauzę w PSP Go
+Użyj dodatkowej pamięci
+Przyspieszenie pamięci Memory Stick
+Inferno Cache
+Obsługa starej wtyczki w ef0
+Pomiń loga Sony w XMB
+Ukryj PIC0 i PIC1
+Zapobiegaj usuwaniu hibernacji w PSP Go
+Ukryj adres MAC
+Ukryj DLC
+Wyłącz diody LED
+Wyłącz dysk UMD
+Wyłącz drążek analogowy
+Flagi QA
+Niestandardowa aplikacja
+Ponowne uruchomienie w 1.50 ARK
