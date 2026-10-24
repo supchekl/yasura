@@ -1,6 +1,8 @@
+# Yasura: defaults for PSP Street (E1000), no Wi-Fi
+
 always, usbcharge, on
 always, overclock, on
-always, wpa2, on
+always, wpa2, off
 always, launcher, off
 always, highmem, off
 always, mscache, on
@@ -10,7 +12,7 @@ always, hibblock, on
 always, oldplugin, on
 always, skiplogos, off
 always, hidepics, off
-always, hidemac, on
+always, hidemac, off
 always, hidedlc, on
 always, noled, off
 always, noumd, off
