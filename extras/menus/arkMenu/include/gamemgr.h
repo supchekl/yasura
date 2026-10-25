@@ -40,6 +40,12 @@ class GameManager : public SystemEntry{
         int maxDraw;
         
         bool use_categories;
+
+        /* Home screen dock: -1 while the icon grid has focus, else the dock slot */
+        int dock_focus;
+        void drawDock();
+        void drawTabs();
+        void gridMove(int dx, int dy);
         
         /* Multithreading variables */
         SceUID iconThread; // UID's of the icon thread
@@ -127,7 +133,8 @@ class GameManager : public SystemEntry{
         string getFooter();
         string getHints(){
             if (optionsmenu) return "UD:Choose;X:OK;O:Back";
-            if (selectedCategory >= 0) return "X:Open;L:Info;LR:Section;SE:Refresh;T:Menu";
+            if (dock_focus >= 0) return "LR:Choose;X:Open;UD:Games list;T:Menu";
+            if (selectedCategory >= 0) return "DP:Choose;X:Open;S:Options;L+R:Section;T:Menu";
             return "T:Menu";
         }
         
@@ -136,10 +143,12 @@ class GameManager : public SystemEntry{
         }
 
         void drawInfo(){
+            if (selectedCategory >= 0){
+                drawTabs();
+                return;
+            }
             string info = getInfo();
-            bool is_entry_info = (getEntry() != NULL && info == getEntry()->getName());
-            bool translate = ( !is_entry_info || info == "Recovery Menu" || info == "UMD Drive");
-            common::printText(5, 13, info.c_str(), LITEGRAY, SIZE_MEDIUM, 0, &scroll, translate);
+            common::printText(8, 13, info.c_str(), WHITE, SIZE_MEDIUM, 0, &scroll, 1);
         }
         
         /* Control the icon threads */

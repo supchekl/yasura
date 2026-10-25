@@ -187,9 +187,12 @@ SfoInfo Eboot::getSfoInfo(){
     SfoInfo info = this->Entry::getSfoInfo();
     // grab PARAM.SFO
     u32 size = this->header.icon0_offset-this->header.param_offset;
-    if (size){
+    // the recovery entry and broken files have no real PBP header
+    if (header.magic == EBOOT_MAGIC && size >= sizeof(SFOHeader) && size <= 0x10000){
 
         unsigned char* sfo_buffer = (unsigned char*)malloc(size);
+        if (sfo_buffer == NULL) return info;
+        memset(sfo_buffer, 0, size);
         this->readFile(sfo_buffer, this->header.param_offset, size);
 
         int title_size = sizeof(info.title);

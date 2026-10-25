@@ -2,6 +2,7 @@
 
 #include "menu.h"
 #include "mp3.h"
+#include "lang.h"
 
 static SceUID iconSema = -1;
 
@@ -26,18 +27,25 @@ Menu::~Menu(){
     delete this->entries;
 }
 
+// the home screen shows one page at a time, so icons are kept for the current page only
+static inline int pageStart(int index){
+    return (index/GRID_PAGE)*GRID_PAGE;
+}
+
 void Menu::freeIcons(){
-    for (int i = 0; i < this->threadIndex-5; i++)
+    int start = pageStart(this->threadIndex);
+    for (int i = 0; i < start; i++)
         this->getEntry(i)->freeIcon();
 
-    for (int i = this->threadIndex+6; i<this->getVectorSize(); i++)
+    for (int i = start+GRID_PAGE; i<this->getVectorSize(); i++)
         this->getEntry(i)->freeIcon();
 }
 
 bool Menu::checkIconsNeeded(bool isSelected){
-    int threshold = (isSelected)? 2 : 5;
-    for (int i = max(this->threadIndex-threshold, 0); i < min((int)this->getVectorSize(), this->threadIndex+threshold+1); i++){
-        if (this->getEntry(i)->getIcon() == common::getImage(IMAGE_WAITICON))
+    int start = pageStart(this->threadIndex);
+    for (int i = start; i < min((int)this->getVectorSize(), start+GRID_PAGE); i++){
+        Entry* e = this->getEntry(i);
+        if (e->getIcon() == common::getImage(IMAGE_WAITICON) || e->getAppIcon() == NULL)
             return true;
     }
     return false;
@@ -69,11 +77,13 @@ void Menu::loadIconsDynamic(bool isSelected){
         return;
     }
     // start loading the needed icons
-    for (int i = max(0, this->threadIndex-5); i < min((int)this->getVectorSize(), this->threadIndex+6); i++){
-        if (this->index != this->threadIndex || this->stopLoading)
-            break; // stop loading the icons if the state of the menu has changed
+    int start = pageStart(this->threadIndex);
+    for (int i = start; i < min((int)this->getVectorSize(), start+GRID_PAGE); i++){
+        if (pageStart(this->index) != start || this->stopLoading)
+            break; // stop loading the icons if the page has changed
         if (this->getEntry(i)->getIcon() == common::getImage(IMAGE_WAITICON))
             this->getEntry(i)->loadIcon();
+        this->getEntry(i)->makeAppIcon();
     }
     initLoad = !this->stopLoading;
     sceKernelSignalSema(iconSema, 1);
@@ -216,6 +226,88 @@ void Menu::draw(bool selected){
             e_icon->draw(x, y);
             if (rim) rim->draw_scale(x, y, w, h);
         }   
+    }
+}
+
+void Menu::setIndex(int i){
+    if (i < 0 || i >= (int)this->getVectorSize() || i == this->index) return;
+    this->index = i;
+    common::playMenuSound();
+}
+
+int Menu::getPageCount(){
+    return (this->getVectorSize() + GRID_PAGE - 1) / GRID_PAGE;
+}
+
+// cut a label to fit under an icon
+static string fitLabel(const string& name, int max_w){
+    if (common::calcTextWidth(name.c_str(), SIZE_LITTLE, 0) <= max_w) return name;
+    string s = name;
+    while (s.size() > 1){
+        // drop a whole UTF-8 character
+        size_t cut = s.size()-1;
+        while (cut > 0 && (s[cut] & 0xC0) == 0x80) cut--;
+        s = s.substr(0, cut);
+        while (!s.empty() && s[s.size()-1] == ' ') s = s.substr(0, s.size()-1);
+        if (common::calcTextWidth((s+"...").c_str(), SIZE_LITTLE, 0) <= max_w) break;
+    }
+    return s + "...";
+}
+
+void Menu::drawGrid(bool focused){
+    if (this->getVectorSize() == 0) return;
+    this->checkIndex();
+
+    const int size = 52, cell_w = 88, top = 26, row_h = 74;
+    const int left = (480 - GRID_COLS*cell_w)/2;
+    int start = pageStart(this->index);
+    Image* wait = common::getImage(IMAGE_WAITICON);
+
+    for (int k = 0; k < GRID_PAGE && start+k < (int)this->getVectorSize(); k++){
+        Entry* e = this->getEntry(start+k);
+        int col = k % GRID_COLS, row = k / GRID_COLS;
+        int cx = left + col*cell_w + cell_w/2;
+        int y = top + row*row_h;
+        bool sel = focused && (start+k == this->index);
+        int s = (sel)? size+8 : size;
+        int x = cx - s/2;
+        int iy = y + (size - s)/2;
+
+        if (sel){
+            Image* plate = common::getPlate();
+            if (plate) plate->draw_scale(x-5, iy-5, s+10, s+10);
+        }
+
+        Image* round = e->getAppIcon();
+        Image* icon = e->getIcon();
+        if (round){
+            common::drawAppIcon(round, x, iy, s);
+        }
+        else if (icon && icon != wait){
+            // icon still being rounded, show it fitted for now
+            int h = s * icon->getHeight() / max(1, icon->getWidth());
+            icon->draw_scale(x, iy + (s-h)/2, s, h);
+        }
+        else {
+            common::getImage(IMAGE_DIALOG)->draw_scale(x, iy, s, s);
+        }
+
+        string name = e->getAppLabel();
+        if (name == "Recovery Menu" || name == "UMD Drive") name = TR(name);
+        string label = fitLabel(name, cell_w-6);
+        int tw = common::calcTextWidth(label.c_str(), SIZE_LITTLE, 0);
+        common::printText(cx - tw/2, y + size + 15, label.c_str(), (sel)? WHITE : 0xFFE6E6E6, SIZE_LITTLE, 0, NULL, 0);
+    }
+
+    // page dots
+    int pages = this->getPageCount();
+    if (pages > 1 && focused){ // the dock shows its app name here instead
+        int cur = this->index / GRID_PAGE;
+        int w = pages*10 - 4;
+        int x = (480 - w)/2;
+        for (int p = 0; p < pages; p++){
+            ya2d_draw_rect(x + p*10, 180, 6, 6, (p == cur)? WHITE : 0x70FFFFFF, 1);
+        }
     }
 }
 

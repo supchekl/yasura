@@ -112,6 +112,10 @@ namespace common{
     extern Image* getPlate(); // optional selection backdrop, may be NULL
     extern Image* getRim(); // optional selection outline, may be NULL
     extern void drawSelection(int x, int y, int w, int h); // highlight behind a selected row
+    extern Image* getDock(); // optional home screen dock backdrop, may be NULL
+    extern Image* getCfwIcon(); // icon of the CFW settings app, falls back to the settings icon
+    extern Image* makeAppIcon(Image* src); // square iOS style app icon (squircle alpha) from an ICON0
+    extern void drawAppIcon(Image* img, int x, int y, int size); // smooth scaled draw plus theme gloss
     extern void drawHints(string spec); // bottom button hint bar, spec is "X:Label;O:Label;..."
     extern Image* getCheckbox(int which);
     extern bool isSharedImage(Image* img);

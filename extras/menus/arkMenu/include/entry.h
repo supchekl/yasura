@@ -67,6 +67,8 @@ class Entry{
         string name;
         string path;
         Image* icon0;
+        Image* app_icon; // rounded home screen version of icon0, NULL until made
+        string app_label; // game title from PARAM.SFO for the home screen, empty until read
         void* icon1;
         Image* pic0;
         Image* pic1;
@@ -103,6 +105,9 @@ class Entry{
         
         void setIcon(Image* icon){ this->icon0 = icon; };
         virtual void freeIcon();
+        Image* getAppIcon(){ return app_icon; };
+        string getAppLabel(){ return (app_label.empty())? name : app_label; };
+        void makeAppIcon();
 
         virtual SfoInfo getSfoInfo(){
             SfoInfo info;

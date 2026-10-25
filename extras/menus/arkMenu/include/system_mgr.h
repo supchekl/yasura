@@ -16,6 +16,7 @@ namespace SystemMgr{
     extern void exitFullScreen();
     extern void changeMenuState();
     extern SystemEntry* getSystemEntry(unsigned index);
+    extern void openEntry(unsigned index); // switch to another launcher app, like picking it in the triangle menu
     void setSystemEntry(SystemEntry* entry, unsigned index);
 };
 

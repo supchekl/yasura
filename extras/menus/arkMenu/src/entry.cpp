@@ -54,10 +54,22 @@ int gameBootThread(SceSize _args, void *_argp){
 
 Entry::Entry(){
     this->has_details = false;
+    this->app_icon = NULL;
 }
 
 Entry::Entry(string path){
     this->has_details = false;
+    this->app_icon = NULL;
+}
+
+void Entry::makeAppIcon(){
+    if (app_label.empty()){
+        SfoInfo info = this->getSfoInfo();
+        info.title[sizeof(info.title)-1] = 0;
+        app_label = (info.title[0])? info.title : name;
+    }
+    if (app_icon || icon0 == NULL || icon0 == common::getImage(IMAGE_WAITICON)) return;
+    app_icon = common::makeAppIcon(icon0);
 }
 
 void Entry::loadDetails(){
@@ -156,6 +168,9 @@ int Entry::getSndSize(){
 }
 
 void Entry::freeIcon(){
+    Image* round = this->app_icon;
+    this->app_icon = NULL;
+    if (round) delete round;
     register Image* aux = this->icon0;
     this->icon0 = common::getImage(IMAGE_WAITICON);
     if (aux && !common::isSharedImage(aux))
@@ -264,6 +279,7 @@ bool Entry::isVideo(const char* path){
 }
 
 Entry::~Entry(){
+    if (app_icon) delete app_icon;
 }
 
 bool Entry::cmpEntriesForSort (Entry* i, Entry* j) {
@@ -275,9 +291,16 @@ bool Entry::getSfoParam(unsigned char* sfo_buffer, int buf_size, char* param_nam
     SFODir *entries = (SFODir *)(sfo_buffer + sizeof(SFOHeader));
     bool res = false;
     int i;
+    if (buf_size < (int)sizeof(SFOHeader) || header->nitems > (buf_size - sizeof(SFOHeader)) / sizeof(SFODir)
+            || header->fields_table_offs >= buf_size || header->values_table_offs >= buf_size)
+        return false; // not a valid PARAM.SFO
     for (i = 0; i < header->nitems; i++) {
+        if (header->fields_table_offs + entries[i].field_offs >= buf_size) break;
+        u32 val = header->values_table_offs + entries[i].val_offs;
+        if (val >= buf_size) continue;
         if (strcmp((char*)sfo_buffer + header->fields_table_offs + entries[i].field_offs, param_name) == 0) {
-            memcpy(var, sfo_buffer + header->values_table_offs + entries[i].val_offs, *var_size);
+            int n = (val + *var_size > buf_size)? buf_size - val : *var_size;
+            memcpy(var, sfo_buffer + val, n);
             res = true;
             break;
         }

@@ -10,6 +10,11 @@
 #define MAX_DRAW_ENTRIES 5
 #define MAX_LOADED_ICONS 11
 
+/* iOS style home screen grid */
+#define GRID_COLS 5
+#define GRID_ROWS 2
+#define GRID_PAGE (GRID_COLS*GRID_ROWS)
+
 typedef enum {
     GAME = 0,
     HOMEBREW = 1,
@@ -41,6 +46,9 @@ class Menu{
         ~Menu();
         
         void draw(bool selected);
+        void drawGrid(bool focused); // one page of rounded app icons with labels and page dots
+        void setIndex(int i);
+        int getPageCount();
         
         void loadIconsDynamic(bool isSelected);
         

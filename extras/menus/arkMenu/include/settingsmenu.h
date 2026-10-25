@@ -100,6 +100,7 @@ class SettingsMenu : public SystemEntry{
         }
         
         Image* getIcon(){
+            if (icon < 0) return common::getCfwIcon();
             return common::getImage(icon);
         }
         

@@ -8,12 +8,17 @@ import os
 import shutil
 import sys
 
+import io
+
+import cairosvg
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 S = 4
 ICONS = "/usr/share/fonts/truetype/material-design-icons-iconfont/MaterialIcons-Regular.ttf"
 TEXT = "/usr/share/fonts/opentype/inter/Inter-SemiBold.otf"
 TEXT_LIGHT = "/usr/share/fonts/opentype/inter/Inter-Regular.otf"
+# Ionicons (MIT, drawn to match iOS), the SVGs used are copied next to this script
+IONICONS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ionicons")
 
 G = {
     "esports": 0xEA28, "settings": 0xE8B8, "folder": 0xE2C7, "extension": 0xE87B,
@@ -207,44 +212,114 @@ def checkbox(on, size=12):
 
 
 def wallpaper(w=480, h=272):
-    """Dark iOS 26 style wallpaper: deep navy with soft glows and two glass ribbons.
-
-    The PSP LCD is bright and saturated, so everything stays low-key on purpose.
-    """
+    """Bright iOS 26 style wallpaper: deep blue to violet to warm coral, soft light blobs
+    and two glass ribbons. Mid tones keep white labels readable on the PSP LCD."""
     W, H = w * S // 2, h * S // 2
-    img = vgrad(W, H, (8, 10, 24, 255), (4, 5, 12, 255))
+    img = vgrad(W, H, (22, 44, 150, 255), (70, 28, 120, 255))
     glows = [
-        (0.22, 0.30, 0.55, (58, 72, 210), 120),
-        (0.85, 0.20, 0.45, (120, 60, 200), 95),
-        (0.70, 1.05, 0.55, (20, 120, 170), 85),
+        (0.10, 0.10, 0.55, (40, 120, 255), 200),
+        (0.55, 0.45, 0.50, (140, 70, 230), 170),
+        (0.95, 0.95, 0.55, (255, 110, 90), 190),
+        (0.85, 0.05, 0.35, (255, 90, 170), 120),
+        (0.15, 1.00, 0.45, (20, 170, 220), 130),
     ]
     for gx, gy, gr, col, a in glows:
         layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         r = gr * W
-        ImageDraw.Draw(layer).ellipse((gx * W - r, gy * H - r * 0.7, gx * W + r, gy * H + r * 0.7), fill=col + (a,))
-        img.alpha_composite(layer.filter(ImageFilter.GaussianBlur(W * 0.12)))
+        ImageDraw.Draw(layer).ellipse((gx * W - r, gy * H - r * 0.8, gx * W + r, gy * H + r * 0.8), fill=col + (a,))
+        img.alpha_composite(layer.filter(ImageFilter.GaussianBlur(W * 0.11)))
 
-    # Glass ribbons: a translucent band with a bright leading edge, like the iOS 26 wallpapers.
-    for amp, off, phase, thick, a in ((0.16, 0.58, 0.0, 0.20, 34), (0.12, 0.74, 1.7, 0.13, 26)):
+    for amp, off, phase, thick, a in ((0.14, 0.50, 0.3, 0.22, 40), (0.10, 0.70, 2.0, 0.14, 30)):
         band = Image.new("L", (W, H), 0)
         edge = Image.new("L", (W, H), 0)
         top = []
         bot = []
         for i in range(W + 1):
             t = i / W
-            y = (off + amp * math.sin(t * math.pi * 1.6 + phase)) * H
+            y = (off + amp * math.sin(t * math.pi * 1.5 + phase)) * H
             top.append((i, y))
             bot.append((i, y + thick * H * (0.7 + 0.3 * math.cos(t * 3 + phase))))
         ImageDraw.Draw(band).polygon(top + bot[::-1], fill=a)
-        ImageDraw.Draw(edge).line(top, fill=150, width=max(1, S // 2))
+        ImageDraw.Draw(edge).line(top, fill=170, width=max(1, S // 2))
         band = band.filter(ImageFilter.GaussianBlur(S * 1.5))
         edge = edge.filter(ImageFilter.GaussianBlur(S * 0.8))
-        fade = Image.linear_gradient("L").rotate(90).resize((W, H))  # dim toward the left edge
-        fade = fade.point(lambda v: 90 + v * 165 // 255)
-        white = Image.new("RGBA", (W, H), (200, 215, 255, 0))
-        white.putalpha(ImageChops.multiply(ImageChops.add(band, edge), fade))
+        white = Image.new("RGBA", (W, H), (255, 255, 255, 0))
+        white.putalpha(ImageChops.add(band, edge))
         img.alpha_composite(white)
+    # a touch darker at the top for the status bar and at the bottom for the dock
+    shade = Image.new("L", (W, H), 0)
+    sp = shade.load()
+    for y in range(H):
+        t = y / H
+        v = int(70 * max(0.0, 1 - t / 0.12) + 60 * max(0.0, (t - 0.7) / 0.3))
+        for x in range(W):
+            sp[x, y] = v
+    dark = Image.new("RGBA", (W, H), (0, 0, 20, 0))
+    dark.putalpha(shade)
+    img.alpha_composite(dark)
     return down(img, w, h)
+
+
+def ion(name, px, color=(255, 255, 255)):
+    """Render an Ionicons SVG as a white glyph px wide."""
+    with open(os.path.join(IONICONS, name + ".svg")) as f:
+        svg = f.read()
+    svg = svg.replace("<svg ", '<svg fill="#%02x%02x%02x" ' % color, 1)
+    png = cairosvg.svg2png(bytestring=svg.encode(), output_width=int(px), output_height=int(px))
+    return Image.open(io.BytesIO(png)).convert("RGBA")
+
+
+def ios_icon(name, top, bottom, size=100, tile=84, glyph_frac=0.56):
+    """iOS style app icon: colored squircle, white glyph, Liquid Glass sheen and rim."""
+    B, T = size * S, tile * S
+    big = Image.new("RGBA", (B, B), (0, 0, 0, 0))
+    off = (B - T) // 2
+    mask = squircle_mask(T, T, T // 2)
+
+    sh = Image.new("L", (B, B), 0)
+    sh.paste(mask, (off, off + 3 * S))
+    shadow = Image.new("RGBA", (B, B), (0, 0, 30, 0))
+    shadow.putalpha(sh.point(lambda v: v * 0.45).filter(ImageFilter.GaussianBlur(4 * S)))
+    big.alpha_composite(shadow)
+
+    body = with_alpha(vgrad(T, T, top + (255,), bottom + (255,)), mask)
+    g = ion(name, T * glyph_frac)
+    gs = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    gl = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    gp = ((T - g.width) // 2, (T - g.height) // 2)
+    gl.alpha_composite(g, gp)
+    gs.alpha_composite(g, (gp[0], gp[1] + int(T * 0.02)))
+    sh2 = Image.new("RGBA", (T, T), (0, 0, 40, 0))
+    sh2.putalpha(gs.getchannel("A").point(lambda v: v * 0.35).filter(ImageFilter.GaussianBlur(T * 0.02)))
+    body.alpha_composite(sh2)
+    body.alpha_composite(gl)
+    big.alpha_composite(body, (off, off))
+    big.alpha_composite(glass_overlay(tile, full=True), (off, off))
+    return down(big, size, size)
+
+
+def glass_overlay(size=64, full=False):
+    """Liquid Glass finish for any squircle icon: top sheen plus a lit rim (GLOSS.PNG)."""
+    B = size * S
+    m = squircle_mask(B, B, B // 2)
+    img = Image.new("RGBA", (B, B), (0, 0, 0, 0))
+    sheen = vgrad(B, int(B * 0.5), (255, 255, 255, 70), (255, 255, 255, 0))
+    sf = Image.new("RGBA", (B, B), (0, 0, 0, 0))
+    sf.paste(sheen, (0, 0))
+    img.alpha_composite(with_alpha(sf, m))
+    rw = max(S, int(B * 0.025))
+    inner = Image.new("L", (B, B), 0)
+    inner.paste(squircle_mask(B - 2 * rw, B - 2 * rw, (B - 2 * rw) // 2), (rw, rw))
+    ring = ImageChops.multiply(ImageChops.subtract(m, inner), rim_light(B, B))
+    rl = Image.new("RGBA", (B, B), (255, 255, 255, 0))
+    rl.putalpha(ring.point(lambda v: v * 0.8))
+    img.alpha_composite(rl)
+    return img if full else down(img, size, size)
+
+
+def dock_panel():
+    # Frosted light glass behind the system apps (nine-sliced, border 24).
+    return panel(64, 22, (255, 255, 255, 64), (255, 255, 255, 40), 230, 46)
 
 
 def text(img, xy, s, px, fill, path=TEXT, anchor="mm"):
@@ -431,9 +506,18 @@ def main():
     bg = wallpaper()
     bg.save(os.path.join(out, "DEFBG.PNG"))
     loading_screen(bg).save(os.path.join(out, "LOADING.PNG"))
-    for name, key in [("GAME.PNG", "esports"), ("BROWSER.PNG", "folder"), ("SETTINGS.PNG", "settings"),
-                      ("PLUGINS.PNG", "extension"), ("EXIT.PNG", "exit"), ("FTP.PNG", "wifi")]:
-        app_icon(G[key]).save(os.path.join(out, name))
+    for name, svg, top, bottom in [
+        ("GAME.PNG", "game-controller", (191, 90, 242), (255, 55, 120)),
+        ("BROWSER.PNG", "folder", (90, 200, 250), (0, 110, 240)),
+        ("FTP.PNG", "wifi", (80, 225, 110), (30, 165, 80)),
+        ("SETTINGS.PNG", "settings", (190, 190, 196), (100, 100, 108)),
+        ("CFW.PNG", "hardware-chip", (100, 110, 255), (60, 40, 170)),
+        ("PLUGINS.PNG", "extension-puzzle", (255, 205, 40), (255, 140, 0)),
+        ("EXIT.PNG", "power", (255, 110, 100), (225, 40, 40)),
+    ]:
+        ios_icon(svg, top, bottom).save(os.path.join(out, name))
+    glass_overlay(64).save(os.path.join(out, "GLOSS.PNG"))
+    dock_panel().save(os.path.join(out, "DOCK.PNG"))
     for name, (key, tint) in SMALL_TINTS.items():
         small_icon(G[key], tint).save(os.path.join(out, name))
     checkbox(True).save(os.path.join(out, "CHECK.PNG"))

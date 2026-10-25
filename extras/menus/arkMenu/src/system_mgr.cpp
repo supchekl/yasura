@@ -222,34 +222,19 @@ static void drawOptionsMenuCommon(){
 
 
 static void drawDateTime() {
+    // iOS style clock: just the time, next to the battery
     pspTime date;
     sceRtcGetCurrentClockLocalTime(&date);
 
-    char dateStr[24];
+    char timeStr[8];
+    snprintf(timeStr, sizeof(timeStr), "%02d:%02d", date.hour, date.minutes);
 
-    switch (dateFormat) {
-        case PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY:
-            snprintf(dateStr, sizeof(dateStr), "%02d/%02d/%04d %02d:%02d:%02d", 
-                    date.month, date.day, date.year, date.hour, date.minutes, date.seconds);
-            break;
-        case PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY:
-	    // ratang!
-            snprintf(dateStr, sizeof(dateStr), "%02d/%02d/%04d %02d:%02d:%02d", 
-                    date.day, date.month, date.year, date.hour, date.minutes, date.seconds);
-            break;
-        case PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD:
-        default:
-            snprintf(dateStr, sizeof(dateStr), "%04d/%02d/%02d %02d:%02d:%02d", 
-                    date.year, date.month, date.day, date.hour, date.minutes, date.seconds);
-            break;
-    }
-
-    int x = 445 - common::calcTextWidth(dateStr, SIZE_MEDIUM, 0);
+    int x = 448 - common::calcTextWidth(timeStr, SIZE_MEDIUM, 0);
     if (common::getConf()->battery_percent) {
         x -= common::calcTextWidth("-100%", SIZE_MEDIUM, 0);
     }
     
-    common::printText(x, 13, dateStr, LITEGRAY, SIZE_MEDIUM, 0, 0, 0);
+    common::printText(x, 14, timeStr, WHITE, SIZE_MEDIUM, 0, 0, 0);
 }
 
 static void drawBattery(){
@@ -317,8 +302,7 @@ static void drawVolume(){
 static void systemDrawer(){
     switch (optionsDrawState){
         case 0:
-            // draw border, battery and datetime
-            common::getImage(IMAGE_DIALOG)->draw_scale(0, 0, 480, 20);
+            // transparent status bar over the wallpaper, like iOS
             drawBattery();
             drawDateTime();
             // draw entry text
@@ -576,6 +560,15 @@ void SystemMgr::enterFullScreen(){
 
 void SystemMgr::exitFullScreen(){
     fullscreen = 0;
+}
+
+void SystemMgr::openEntry(unsigned index){
+    if (index >= MAX_ENTRIES || index == cur_entry) return;
+    entries[cur_entry]->pause();
+    cur_entry = index;
+    pEntryIndex = index;
+    page_start = max(0, cur_entry - getNumPageItems() + 1);
+    entries[cur_entry]->resume();
 }
 
 SystemEntry* SystemMgr::getSystemEntry(unsigned index){

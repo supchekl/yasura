@@ -1,5 +1,7 @@
 #include "common.h"
 #include <ctime>
+#include <cmath>
+#include <pspgum.h>
 #include <sstream>
 #include <dirent.h>
 #include <algorithm>
@@ -49,6 +51,10 @@ static Anim* animations[ANIM_COUNT];
 /* Optional theme images for the selected entry (PLATE.PNG behind it, RIM.PNG over it) */
 static Image* plate = NULL;
 static Image* rim = NULL;
+/* Optional home screen images: DOCK.PNG behind the system apps, GLOSS.PNG over every app icon */
+static Image* dock = NULL;
+static Image* gloss = NULL;
+static Image* cfw_icon = NULL; // optional CFW.PNG, so the two settings apps look different
 /* Optional button glyphs for the hint bar, matched by key in drawHints() */
 #define HINT_BUTTONS 11
 static const char* hint_keys[HINT_BUTTONS] = {"X", "O", "T", "S", "L", "R", "ST", "SE", "UD", "LR", "DP"};
@@ -537,6 +543,23 @@ void common::loadTheme(){
         else { delete rim; rim = NULL; }
     }
 
+    extra = findPkgOffset("DOCK.PNG", NULL, NULL, &dummyMissingHandler);
+    if (extra){
+        dock = new Image(theme_path, RESOURCES_LOAD_PLACE, extra);
+        if (dock->getTexture()) dock->slice = 24;
+        else { delete dock; dock = NULL; }
+    }
+    extra = findPkgOffset("CFW.PNG", NULL, NULL, &dummyMissingHandler);
+    if (extra){
+        cfw_icon = new Image(theme_path, RESOURCES_LOAD_PLACE, extra);
+        if (!cfw_icon->getTexture()){ delete cfw_icon; cfw_icon = NULL; }
+    }
+    extra = findPkgOffset("GLOSS.PNG", NULL, NULL, &dummyMissingHandler);
+    if (extra){
+        gloss = new Image(theme_path, RESOURCES_LOAD_PLACE, extra);
+        if (!gloss->getTexture()){ delete gloss; gloss = NULL; }
+    }
+
     for (int i=0; i<HINT_BUTTONS; i++){
         SceOff off = findPkgOffset(hint_files[i], NULL, NULL, &dummyMissingHandler);
         if (!off) continue;
@@ -712,6 +735,146 @@ Image* common::getRim(){
     return rim;
 }
 
+Image* common::getDock(){
+    return dock;
+}
+
+Image* common::getCfwIcon(){
+    return (cfw_icon)? cfw_icon : images[IMAGE_SETTINGS];
+}
+
+/* Read one texel of an 8888 texture, swizzled or not */
+static inline u32 texel(ya2d_texture* t, int x, int y){
+    if (x < 0) x = 0; else if (x >= t->width) x = t->width-1;
+    if (y < 0) y = 0; else if (y >= t->height) y = t->height-1;
+    u8* data = (u8*)t->data;
+    if (!t->swizzled)
+        return *(u32*)(data + y*t->stride + x*4);
+    // swizzled blocks are 16 bytes wide and 8 rows tall
+    int bx = x*4;
+    u32 off = ((y>>3)*(t->stride>>4) + (bx>>4))*128 + (y&7)*16 + (bx&15);
+    return *(u32*)(data + off);
+}
+
+static inline u32 mix(u32 a, u32 b, int w){ // w in 0..256, per channel
+    u32 out = 0;
+    for (int s=0; s<32; s+=8){
+        int ca = (a>>s)&0xFF, cb = (b>>s)&0xFF;
+        out |= (u32)((ca*(256-w) + cb*w)>>8) << s;
+    }
+    return out;
+}
+
+static u32 sample(ya2d_texture* t, float fx, float fy){
+    int x = (int)fx, y = (int)fy;
+    int wx = (int)((fx-x)*256), wy = (int)((fy-y)*256);
+    u32 top = mix(texel(t, x, y), texel(t, x+1, y), wx);
+    u32 bot = mix(texel(t, x, y+1), texel(t, x+1, y+1), wx);
+    return mix(top, bot, wy);
+}
+
+#define APP_ICON 64
+static u8* squircle = NULL;
+
+/* Coverage of an iOS style superellipse (n=5), 4x4 supersampled, built once */
+static void buildSquircle(){
+    squircle = (u8*)malloc(APP_ICON*APP_ICON);
+    const float r = APP_ICON/2.f;
+    for (int y=0; y<APP_ICON; y++){
+        for (int x=0; x<APP_ICON; x++){
+            int hits = 0;
+            for (int sy=0; sy<4; sy++){
+                for (int sx=0; sx<4; sx++){
+                    float u = fabsf((x + (sx+0.5f)/4.f - r)/r);
+                    float v = fabsf((y + (sy+0.5f)/4.f - r)/r);
+                    float u2 = u*u, v2 = v*v;
+                    if (u2*u2*u + v2*v2*v <= 1.f) hits++;
+                }
+            }
+            squircle[y*APP_ICON+x] = hits*255/16;
+        }
+    }
+}
+
+Image* common::makeAppIcon(Image* src){
+    if (!src || !src->getTexture() || src->getTexture()->pixel_format != GU_PSM_8888) return NULL;
+    if (!squircle) buildSquircle();
+
+    ya2d_texture* st = src->getTexture();
+    ya2d_texture* tex = ya2d_create_texture(APP_ICON, APP_ICON, GU_PSM_8888, YA2D_PLACE_RAM);
+    if (!tex) return NULL;
+
+    // backdrop: the icon cropped to a square, averaged down to 4x4 and blown up again,
+    // which gives a soft blur in the icon's own colors
+    const int B = 4;
+    u32 grid[B*B];
+    int side = (st->width < st->height)? st->width : st->height;
+    int ox = (st->width-side)/2, oy = (st->height-side)/2;
+    for (int gy=0; gy<B; gy++){
+        for (int gx=0; gx<B; gx++){
+            u32 acc[4] = {0,0,0,0}; int n = 0;
+            for (int y=oy+gy*side/B; y<oy+(gy+1)*side/B; y+=2){
+                for (int x=ox+gx*side/B; x<ox+(gx+1)*side/B; x+=2){
+                    u32 c = texel(st, x, y);
+                    int a = c>>24;
+                    for (int k=0; k<3; k++) acc[k] += ((c>>(k*8))&0xFF)*a/255;
+                    n++;
+                }
+            }
+            if (!n) n = 1;
+            // darken a little so the foreground stands out
+            grid[gy*B+gx] = 0xFF000000 | ((acc[2]*3/(4*n))<<16) | ((acc[1]*3/(4*n))<<8) | (acc[0]*3/(4*n));
+        }
+    }
+
+    // foreground: the whole icon, fitted to the width with a slight zoom
+    float scale = (float)st->width / (APP_ICON*1.12f);
+    int fh = (int)(st->height/scale);
+    if (fh > APP_ICON) fh = APP_ICON;
+    int fy0 = (APP_ICON-fh)/2;
+    float fx_off = (st->width - APP_ICON*scale)/2.f;
+
+    u32* out = (u32*)tex->data;
+    int stride = tex->stride/4;
+    for (int y=0; y<APP_ICON; y++){
+        for (int x=0; x<APP_ICON; x++){
+            float gxf = (x+0.5f)*B/APP_ICON - 0.5f, gyf = (y+0.5f)*B/APP_ICON - 0.5f;
+            if (gxf < 0) gxf = 0; if (gyf < 0) gyf = 0;
+            int gx = (int)gxf, gy = (int)gyf;
+            int gx1 = (gx+1 < B)? gx+1 : gx, gy1 = (gy+1 < B)? gy+1 : gy;
+            int wx = (int)((gxf-gx)*256), wy = (int)((gyf-gy)*256);
+            u32 c = mix(mix(grid[gy*B+gx], grid[gy*B+gx1], wx), mix(grid[gy1*B+gx], grid[gy1*B+gx1], wx), wy);
+            if (y >= fy0 && y < fy0+fh){
+                u32 f = sample(st, fx_off + (x+0.5f)*scale - 0.5f, (y-fy0+0.5f)*scale - 0.5f);
+                c = mix(c, f|0xFF000000, (f>>24)*256/255);
+            }
+            out[y*stride+x] = (c & 0x00FFFFFF) | ((u32)squircle[y*APP_ICON+x] << 24);
+        }
+    }
+    ya2d_flush_texture(tex);
+    return new Image(tex);
+}
+
+void common::drawAppIcon(Image* img, int x, int y, int size){
+    if (!img || !img->getTexture()) return;
+    ya2d_texture* t = img->getTexture();
+    ya2d_set_texture(t);
+    sceGuTexFilter(GU_LINEAR, GU_LINEAR); // smooth when shrinking or growing the icon
+    ya2d_vertex_2s3s* v = (ya2d_vertex_2s3s*)sceGuGetMemory(2*sizeof(ya2d_vertex_2s3s));
+    v[0].u = 0; v[0].v = 0; v[0].x = x; v[0].y = y; v[0].z = 0;
+    v[1].u = t->width; v[1].v = t->height; v[1].x = x+size; v[1].y = y+size; v[1].z = 0;
+    sceGumDrawArray(GU_SPRITES, GU_TEXTURE_16BIT|GU_VERTEX_16BIT|GU_TRANSFORM_2D, 2, 0, v);
+    if (gloss){
+        ya2d_texture* g = gloss->getTexture();
+        ya2d_set_texture(g);
+        sceGuTexFilter(GU_LINEAR, GU_LINEAR);
+        ya2d_vertex_2s3s* w = (ya2d_vertex_2s3s*)sceGuGetMemory(2*sizeof(ya2d_vertex_2s3s));
+        w[0].u = 0; w[0].v = 0; w[0].x = x; w[0].y = y; w[0].z = 0;
+        w[1].u = g->width; w[1].v = g->height; w[1].x = x+size; w[1].y = y+size; w[1].z = 0;
+        sceGumDrawArray(GU_SPRITES, GU_TEXTURE_16BIT|GU_VERTEX_16BIT|GU_TRANSFORM_2D, 2, 0, w);
+    }
+}
+
 void common::drawSelection(int x, int y, int w, int h){
     if (plate) plate->draw_scale(x, y, w, h);
     else ya2d_draw_rect(x, y, w, h, 0x40FFFFFF, 1);
@@ -737,6 +900,7 @@ void common::drawHints(string spec){
             key[n] = item.substr(0, colon);
             label[n] = item.substr(colon+1);
             btn[n] = NULL;
+            if (key[n] == "L+R") btn[n] = hint_btns[4]; // drawn as L then R
             for (int i=0; i<HINT_BUTTONS; i++){
                 if (key[n] == hint_keys[i]){
                     btn[n] = hint_btns[i];
@@ -754,6 +918,7 @@ void common::drawHints(string spec){
     int w = 2*pad - gap;
     for (int i=0; i<n; i++){
         int bw = (btn[i])? btn[i]->getWidth() : calcTextWidth(key[i].c_str(), SIZE_LITTLE, 0);
+        if (key[i] == "L+R" && btn[i] && hint_btns[5]) bw += 2 + hint_btns[5]->getWidth();
         w += bw + icon_gap + tw[i] + gap;
     }
     if (w > 476) w = 476;
@@ -768,6 +933,10 @@ void common::drawHints(string spec){
         if (btn[i]){
             bw = btn[i]->getWidth();
             btn[i]->draw(cx, y + (h - btn[i]->getHeight())/2);
+            if (key[i] == "L+R" && hint_btns[5]){
+                hint_btns[5]->draw(cx + bw + 2, y + (h - hint_btns[5]->getHeight())/2);
+                bw += 2 + hint_btns[5]->getWidth();
+            }
         }
         else {
             bw = calcTextWidth(key[i].c_str(), SIZE_LITTLE, 0);

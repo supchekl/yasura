@@ -32,6 +32,7 @@ GameManager::GameManager(){
     this->use_categories = true;
     this->scanning = true;
     this->optionsmenu = NULL;
+    this->dock_focus = -1;
 
     // initialize the categories
     this->selectedCategory = (common::getConf()->main_menu)? -2 : -1;
@@ -388,17 +389,76 @@ string GameManager::getInfo(){
     return "Unknown Menu State";
 }
 
+static const char* category_names[MAX_CATEGORIES] = {"Games", "Apps", "PS1"};
+
+/* Segmented control in the status bar: one tab per non-empty section */
+void GameManager::drawTabs(){
+    int x = 8;
+    for (int i=0; i<MAX_CATEGORIES; i++){
+        if (categories[i]->empty()) continue;
+        string name = TR(category_names[i]);
+        int w = common::calcTextWidth(name.c_str(), SIZE_LITTLE, 0) + 16;
+        if (i == selectedCategory){
+            common::drawSelection(x, 2, w, 16);
+            common::printText(x+8, 13, name.c_str(), WHITE, SIZE_LITTLE, 0, NULL, 0);
+        }
+        else {
+            common::printText(x+8, 13, name.c_str(), 0xC0FFFFFF, SIZE_LITTLE, 0, NULL, 0);
+        }
+        x += w + 2;
+    }
+}
+
+/* Glass dock with every other launcher app: files, network, settings, plugins, exit */
+void GameManager::drawDock(){
+    int n = 0;
+    SystemEntry* apps[8];
+    for (int i=0; i<8; i++){
+        SystemEntry* e = SystemMgr::getSystemEntry(i);
+        if (e == NULL) break;
+        if (e == this) continue;
+        apps[n++] = e;
+    }
+    if (n == 0) return;
+    if (dock_focus >= n) dock_focus = n-1;
+
+    const int size = 38, step = 50, y = 192, h = 52;
+    int w = n*step + 14;
+    int x = (480-w)/2;
+    Image* dock = common::getDock();
+    if (dock) dock->draw_scale(x, y, w, h);
+    else common::getImage(IMAGE_DIALOG)->draw_scale(x, y, w, h);
+
+    for (int i=0; i<n; i++){
+        int cx = x + 7 + i*step + step/2;
+        int s = (i == dock_focus)? size+6 : size;
+        if (i == dock_focus){
+            Image* plate = common::getPlate();
+            if (plate) plate->draw_scale(cx - s/2 - 4, y + h/2 - s/2 - 4, s+8, s+8);
+        }
+        apps[i]->getIcon()->draw_scale(cx - s/2, y + h/2 - s/2, s, s);
+    }
+
+    // name of the focused app, where the page dots usually are
+    if (dock_focus >= 0){
+        string name = TR(apps[dock_focus]->getName());
+        int tw = common::calcTextWidth(name.c_str(), SIZE_LITTLE, 0);
+        common::printText((480-tw)/2, 186, name.c_str(), WHITE, SIZE_LITTLE, 0, NULL, 0);
+    }
+}
+
 void GameManager::draw(){
     if (this->selectedCategory >= 0){
-        for (int i=0; i<this->maxDraw; i++){
-            if (i == (int)this->selectedCategory)
-                continue;
-            this->categories[i]->draw(false);
-            sceKernelDelayThread(0);
-        }
         if (this->selectedCategory < this->maxDraw)
-            this->categories[this->selectedCategory]->draw(true);
+            this->categories[this->selectedCategory]->drawGrid(dock_focus < 0 && !optionsmenu);
+        if (this->maxDraw > 0)
+            drawDock();
         if (optionsmenu) optionsmenu->draw();
+    }
+    else if (this->selectedCategory == -2){
+        string s = TR("No games available");
+        common::printText((480-common::calcTextWidth(s.c_str(), SIZE_MEDIUM, 0))/2, 110, s.c_str(), WHITE, SIZE_MEDIUM, 0, NULL, 0);
+        drawDock();
     }
     if (loadingData || selectedCategory == -1){
         static float angle = 1.0;
@@ -418,24 +478,75 @@ void GameManager::endAllThreads(){
 }
 
 
+/* Move around the icon grid; going down from the last row lands in the dock */
+void GameManager::gridMove(int dx, int dy){
+    Menu* m = categories[selectedCategory];
+    int size = m->getVectorSize();
+    int idx = m->getIndex();
+    int start = (idx/GRID_PAGE)*GRID_PAGE;
+    int pos = idx - start;
+    scroll.tmp = scroll.x;
+
+    if (dx){
+        m->setIndex(idx + dx); // reading order, flows onto the next or previous page
+    }
+    else if (dy < 0){
+        if (pos >= GRID_COLS) m->setIndex(idx - GRID_COLS);
+        else if (start > 0) m->setIndex(min(idx - GRID_COLS, size-1)); // bottom row of the previous page
+    }
+    else if (dy > 0){
+        if (pos < GRID_COLS && idx + GRID_COLS < size) m->setIndex(idx + GRID_COLS);
+        else if (pos < GRID_COLS && start + GRID_COLS < size) m->setIndex(size-1);
+        else {
+            dock_focus = 0;
+            common::playMenuSound();
+        }
+    }
+    sceKernelDelayThread(90000); // held buttons repeat every frame, keep it walkable
+}
+
 void GameManager::control(Controller* pad){
 
-    if (pad->down()){
-        this->moveDown();
+    if (selectedCategory == -2 && dock_focus < 0) dock_focus = 0; // no games, only the dock
+    if (selectedCategory == -1) return;
+
+    if (dock_focus >= 0){
+        if (pad->left()){
+            if (dock_focus > 0){ dock_focus--; common::playMenuSound(); }
+        }
+        else if (pad->right()){
+            dock_focus++; // clamped by drawDock()
+            common::playMenuSound();
+        }
+        if (pad->left() || pad->right()) sceKernelDelayThread(90000);
+        else if ((pad->up() || pad->decline()) && selectedCategory >= 0){
+            dock_focus = -1;
+            common::playMenuSound();
+        }
+        else if (pad->accept()){
+            int n = 0;
+            for (int i=0; i<8; i++){
+                SystemEntry* e = SystemMgr::getSystemEntry(i);
+                if (e == NULL) break;
+                if (e == this) continue;
+                if (n++ == dock_focus){
+                    common::playMenuSound();
+                    SystemMgr::openEntry(i);
+                    break;
+                }
+            }
+        }
+        return;
     }
-    else if (pad->up()){
-        this->moveUp();
-    }
-    else {
-        this->stopFastScroll();
-    }
-    
-    if (pad->left())
-        this->moveLeft();
-    else if (pad->right())
-        this->moveRight();
+
+    if (pad->down()) this->gridMove(0, 1);
+    else if (pad->up()) this->gridMove(0, -1);
+    else if (pad->left()) this->gridMove(-1, 0);
+    else if (pad->right()) this->gridMove(1, 0);
+    else if (pad->LT()) this->moveLeft();
+    else if (pad->RT()) this->moveRight();
     else if (pad->accept()){
-        if (selectedCategory >= 0 && !categories[selectedCategory]->isAnimating()){
+        if (selectedCategory >= 0){
             common::playMenuSound();
             this->execApp();
         }
@@ -453,8 +564,8 @@ void GameManager::control(Controller* pad){
             this->waitIconsLoad();
         }
     }
-    else if (pad->LT()){
-        if (selectedCategory >= 0 && !categories[selectedCategory]->isAnimating()){
+    else if (pad->square()){
+        if (selectedCategory >= 0){
             common::playMenuSound();
             this->gameOptionsMenu();
         }
