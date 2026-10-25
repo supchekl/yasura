@@ -36,6 +36,11 @@ GameManager::GameManager(){
     this->optionsmenu = NULL;
     this->dock_focus = -1;
     this->cc_focus = -1;
+    this->cc_time = 0;
+    this->cc_closing = false;
+    this->dock_plate_x = -1;
+    for (int i=0; i<12; i++) this->dock_pop[i] = 0;
+    this->dock_appear = 0;
 
     // initialize the categories
     this->selectedCategory = (common::getConf()->main_menu)? -2 : -1;
@@ -187,6 +192,8 @@ void GameManager::findEntries(){
         if (!this->categories[i]->empty())
             this->selectedCategory = i;
     }
+    if (selectedCategory >= 0) categories[selectedCategory]->startAppear();
+    dock_appear = clock();
 
     this->scanning = false;
 }
@@ -335,6 +342,7 @@ void GameManager::moveLeft(){
         this->categories[selectedCategory]->animStart(2);
         this->categories[auxCategory]->animStart(2);
         this->selectedCategory = auxCategory;
+        this->categories[auxCategory]->startAppear();
         common::playMenuSound();
     }
     sceKernelDelayThread(100000);
@@ -350,6 +358,7 @@ void GameManager::moveRight(){
         this->categories[selectedCategory]->animStart(2);
         this->categories[auxCategory]->animStart(2);
         this->selectedCategory = auxCategory;
+        this->categories[auxCategory]->startAppear();
         common::playMenuSound();
     }
     sceKernelDelayThread(100000);
@@ -413,6 +422,13 @@ void GameManager::drawTabs(){
 }
 
 /* Glass dock with every other launcher app: files, network, settings, plugins, exit */
+static const int DOCK_ICON = 38, DOCK_STEP = 50, DOCK_Y = 192, DOCK_H = 52;
+
+int GameManager::dock_icon_x(int slot, int n){
+    int w = n*DOCK_STEP + 14;
+    return (480-w)/2 + 7 + slot*DOCK_STEP + DOCK_STEP/2;
+}
+
 void GameManager::drawDock(){
     int n = 0;
     SystemEntry* apps[12];
@@ -425,21 +441,35 @@ void GameManager::drawDock(){
     if (n == 0) return;
     if (dock_focus >= n) dock_focus = n-1;
 
-    const int size = 38, step = 50, y = 192, h = 52;
-    int w = n*step + 14;
-    int x = (480-w)/2;
+    // the dock rises from the bottom edge when the home screen appears
+    int oy = 0;
+    if (dock_appear){
+        float t = common::since(dock_appear, 0.4f);
+        oy = (int)(70 * (1 - common::easeOut(t)));
+        if (t >= 1) dock_appear = 0;
+    }
+    int w = n*DOCK_STEP + 14;
+    int x = (480-w)/2, y = DOCK_Y + oy;
     Image* dock = common::getDock();
-    if (dock) dock->draw_scale(x, y, w, h);
-    else common::getImage(IMAGE_DIALOG)->draw_scale(x, y, w, h);
+    if (dock) dock->draw_scale(x, y, w, DOCK_H);
+    else common::getImage(IMAGE_DIALOG)->draw_scale(x, y, w, DOCK_H);
+
+    if (dock_focus >= 0){
+        float target = dock_icon_x(dock_focus, n) - (DOCK_ICON+6)/2 - 4;
+        if (dock_plate_x < 0) dock_plate_x = target;
+        dock_plate_x = common::approach(dock_plate_x, target, 0.35f);
+        Image* plate = common::getPlate();
+        int ps = DOCK_ICON + 6 + 8;
+        if (plate) plate->draw_scale((int)dock_plate_x, y + DOCK_H/2 - ps/2, ps, ps);
+    }
+    else dock_plate_x = -1;
 
     for (int i=0; i<n; i++){
-        int cx = x + 7 + i*step + step/2;
-        int s = (i == dock_focus)? size+6 : size;
-        if (i == dock_focus){
-            Image* plate = common::getPlate();
-            if (plate) plate->draw_scale(cx - s/2 - 4, y + h/2 - s/2 - 4, s+8, s+8);
-        }
-        apps[i]->getIcon()->draw_scale(cx - s/2, y + h/2 - s/2, s, s);
+        dock_pop[i] = common::approach(dock_pop[i]*100, (i == dock_focus)? 100 : 0, 0.3f) / 100.f;
+        int cx = dock_icon_x(i, n);
+        int s = (int)(DOCK_ICON + 6*dock_pop[i]);
+        Image* icon = apps[i]->getIcon();
+        common::drawSub(icon, 0, 0, icon->getWidth(), icon->getHeight(), cx - s/2, y + DOCK_H/2 - s/2, s, s);
     }
 
     // name of the focused app, where the page dots usually are
@@ -509,9 +539,7 @@ void GameManager::gridMove(int dx, int dy){
     sceKernelDelayThread(90000); // held buttons repeat every frame, keep it walkable
 }
 
-enum { CC_USB, CC_SLEEP, CC_REFRESH, CC_MUSIC, CC_BUTTONS };
-/* glyphs in CCICONS.PNG, 32px cells */
-enum { GLYPH_PLAY, GLYPH_USB, GLYPH_MOON, GLYPH_REFRESH, GLYPH_MUSIC, GLYPH_BATTERY, GLYPH_CARD, GLYPH_BOLT, GLYPH_LOCK };
+enum { CC_USB, CC_SLEEP, CC_REFRESH, CC_MUSIC, CC_SEARCH, CC_BUTTONS };
 
 static void ccGlyph(int glyph, int x, int y, int size){
     Image* cc = common::getThemeImage(THEME_CC);
@@ -531,10 +559,26 @@ static void deviceSpace(const char* dev, u64* total, u64* free){
 }
 
 /* iOS style control center: battery and memory widgets, quick toggles */
+void GameManager::closeControlCenter(){
+    if (cc_closing) return;
+    cc_closing = true;
+    cc_time = clock();
+    if (cc_time == 0) cc_time = 1;
+}
+
 void GameManager::drawControlCenter(){
-    ya2d_draw_rect(0, 0, 480, 272, 0x80000000, 1);
+    // slides down from the top over a dimmed home screen, and back up when closed
+    float e;
+    if (cc_closing){
+        float t = common::since(cc_time, 0.25f);
+        e = 1 - common::easeOut(t);
+        if (t >= 1){ cc_focus = -1; cc_closing = false; return; }
+    }
+    else e = common::easeOut(common::since(cc_time, 0.32f));
+    ya2d_draw_rect(0, 0, 480, 272, common::withAlpha(0x90000000, (int)(255*e)), 1);
     Image* box = common::getImage(IMAGE_DIALOG);
-    const int x0 = 44, y0 = 30, wide = 192, gap = 8;
+    const int x0 = 44, wide = 192, gap = 8;
+    const int y0 = 30 - (int)(240 * (1 - e));
 
     // battery widget
     box->draw_scale(x0, y0, wide, 100);
@@ -584,10 +628,10 @@ void GameManager::drawControlCenter(){
     if (total) ya2d_draw_rect(x1+14, y0+88, (int)((wide-28)*(total-freeb)/total), 3, 0xFFFFC85A, 1);
 
     // toggles
-    const int bw = (2*wide + gap - 3*gap)/4, bh = 72, by = y0 + 100 + gap;
+    const int bw = (2*wide + gap - (CC_BUTTONS-1)*gap)/CC_BUTTONS, bh = 72, by = y0 + 100 + gap;
     bool music = MusicPlayer::isPlaying();
-    const char* labels[CC_BUTTONS] = {"USB", "Sleep", "Refresh", "Music"};
-    int glyphs[CC_BUTTONS] = {GLYPH_USB, GLYPH_MOON, GLYPH_REFRESH, GLYPH_MUSIC};
+    const char* labels[CC_BUTTONS] = {"USB", "Sleep", "Refresh", "Music", "Search"};
+    int glyphs[CC_BUTTONS] = {GLYPH_USB, GLYPH_MOON, GLYPH_REFRESH, GLYPH_MUSIC, GLYPH_SEARCH};
     for (int i=0; i<CC_BUTTONS; i++){
         int bx = x0 + i*(bw+gap);
         bool on = (i == CC_USB && USB::is_enabled) || (i == CC_MUSIC && music);
@@ -610,9 +654,51 @@ void GameManager::drawControlCenter(){
     }
 }
 
+static string lowerAscii(string s){
+    for (size_t i=0; i<s.size(); i++) if (s[i] >= 'A' && s[i] <= 'Z') s[i] += 'a' - 'A';
+    return s;
+}
+
+/* Spotlight style search: type part of a name, jump to the first game that matches */
+void GameManager::searchGames(){
+    SystemMgr::pauseDraw();
+    OSK osk;
+    osk.init("Search games", "", 50);
+    osk.loop();
+    char text[51] = {0};
+    bool ok = (osk.getResult() != OSK_CANCEL);
+    if (ok) osk.getText(text);
+    osk.end();
+    SystemMgr::resumeDraw();
+    if (!ok || !text[0]) return;
+
+    string q = lowerAscii(text);
+    int found = 0, cat = -1, idx = -1;
+    for (int c=0; c<MAX_CATEGORIES; c++){
+        for (int i=0; i<(int)categories[c]->getVectorSize(); i++){
+            Entry* e = categories[c]->getEntry(i);
+            if (lowerAscii(e->getAppLabel()).find(q) != string::npos || lowerAscii(e->getName()).find(q) != string::npos){
+                if (found++ == 0){ cat = c; idx = i; }
+            }
+        }
+    }
+    if (found == 0){
+        common::notify("Nothing found", GLYPH_SEARCH);
+        return;
+    }
+    dock_focus = -1;
+    selectedCategory = cat;
+    categories[cat]->setIndex(idx);
+    categories[cat]->startAppear();
+    char msg[64];
+    snprintf(msg, sizeof(msg), "%s: %d", TR("Found").c_str(), found);
+    common::notify(msg, GLYPH_SEARCH);
+}
+
 void GameManager::controlCenter(Controller* pad){
+    if (cc_closing) return;
     if (pad->decline() || pad->select()){
-        cc_focus = -1;
+        closeControlCenter();
         common::playMenuSound();
     }
     else if (pad->left()){
@@ -629,6 +715,7 @@ void GameManager::controlCenter(Controller* pad){
             case CC_USB:
                 if (USB::is_enabled) USB::disable();
                 else USB::enable();
+                common::notify((USB::is_enabled)? "USB connected" : "USB disconnected", GLYPH_USB);
                 break;
             case CC_SLEEP:
                 cc_focus = -1;
@@ -639,9 +726,14 @@ void GameManager::controlCenter(Controller* pad){
                 this->waitIconsLoad();
                 GameManager::updateGameList(NULL);
                 this->waitIconsLoad();
+                common::notify("Games list updated", GLYPH_REFRESH);
                 break;
             case CC_MUSIC:
                 if (MusicPlayer::isPlaying()) MusicPlayer::pauseResume();
+                break;
+            case CC_SEARCH:
+                cc_focus = -1;
+                this->searchGames();
                 break;
         }
     }
@@ -671,6 +763,12 @@ void GameManager::control(Controller* pad){
             common::playMenuSound();
         }
         else if (pad->accept()){
+            int total = 0;
+            for (int i=0; i<12; i++){
+                SystemEntry* e = SystemMgr::getSystemEntry(i);
+                if (e == NULL) break;
+                if (e != this) total++;
+            }
             int n = 0;
             for (int i=0; i<12; i++){
                 SystemEntry* e = SystemMgr::getSystemEntry(i);
@@ -678,6 +776,7 @@ void GameManager::control(Controller* pad){
                 if (e == this) continue;
                 if (n++ == dock_focus){
                     common::playMenuSound();
+                    SystemMgr::zoomFrom(dock_icon_x(dock_focus, total) - DOCK_ICON/2, DOCK_Y + (DOCK_H-DOCK_ICON)/2, DOCK_ICON, e->getIcon());
                     SystemMgr::openEntry(i);
                     break;
                 }
@@ -707,6 +806,8 @@ void GameManager::control(Controller* pad){
         if (selectedCategory != -1){
             common::playMenuSound();
             cc_focus = 0;
+            cc_closing = false;
+            cc_time = clock();
         }
     }
     else if (pad->square()){

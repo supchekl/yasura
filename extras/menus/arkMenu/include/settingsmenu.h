@@ -26,6 +26,7 @@ class SettingsMenu : public SystemEntry{
         int animation;
         int w, h, x, y;
         int index, start;
+        float sel_y; // gliding highlight
         
         string* customText;
         int ntext;

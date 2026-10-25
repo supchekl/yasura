@@ -45,6 +45,10 @@ enum {
     MAX_THEME_EXTRAS
 };
 
+/* glyphs in CCICONS.PNG, 32px cells */
+enum { GLYPH_PLAY, GLYPH_USB, GLYPH_MOON, GLYPH_REFRESH, GLYPH_MUSIC, GLYPH_BATTERY, GLYPH_CARD, GLYPH_BOLT, GLYPH_LOCK,
+       GLYPH_SEARCH, GLYPH_CAMERA, GLYPH_IMAGE, GLYPH_GAME };
+
 enum images {
     IMAGE_BG,
     IMAGE_WAITICON,
@@ -132,6 +136,21 @@ namespace common{
     extern void previewWallpaper(int which); // show this wallpaper on the next frame only (settings preview)
     extern void reloadWallpaper();
     extern bool photoWallpaperMissing();
+
+    /* animation helpers (the draw thread runs at the display rate, about 60 fps) */
+    extern float easeOut(float t); // cubic ease out, t in 0..1
+    extern float easeBack(float t); // ease out with a small overshoot, for springy pops
+    extern float approach(float cur, float target, float k=0.3f); // exponential glide toward target
+    extern float since(clock_t start, float seconds); // 0..1 progress of an animation started at start
+    extern void setAlpha(int a); // fade nine-slice panels, drawSub and app icons, 255 = opaque
+    extern u32 withAlpha(u32 color, int a);
+
+    /* iOS style banners that slide down from the top */
+    extern void notify(std::string text, int glyph);
+    extern void drawNotification();
+
+    extern bool saveScreenshot(); // PNG of the screen into PICTURE/Yasura
+    extern bool mediaChanged(bool clear); // new pictures since the Photos app last looked
     extern bool setPhotoWallpaper(Image* src); // save a photo as the custom wallpaper and switch to it
     extern Image* makeAppIcon(Image* src); // square iOS style app icon (squircle alpha) from an ICON0
     extern void drawAppIcon(Image* img, int x, int y, int size); // smooth scaled draw plus theme gloss

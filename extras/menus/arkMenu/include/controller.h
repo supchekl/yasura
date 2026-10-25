@@ -31,6 +31,7 @@ class Controller{
 
         // Return the current pad data
         u32 get_buttons();
+        u32 held(){ return nowpad; } // buttons down right now, no repeat logic
         
         // check for accept or decline from user (depending on the button configuration)
         bool any();

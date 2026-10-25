@@ -285,5 +285,18 @@
     "October of": "октября",
     "November of": "ноября",
     "December of": "декабря",
-    "Press any button": "Нажми любую кнопку"
+    "Press any button": "Нажми любую кнопку",
+    "Screenshot saved to Photos": "Снимок экрана сохранён в Фото",
+    "Could not save the screenshot": "Не удалось сохранить снимок",
+    "Charger connected": "Зарядка подключена",
+    "Charger disconnected": "Зарядка отключена",
+    "Battery low: 10%": "Мало заряда: 10%",
+    "Battery low: 20%": "Мало заряда: 20%",
+    "Search": "Поиск",
+    "Search games": "Поиск игр",
+    "Found": "Найдено",
+    "Nothing found": "Ничего не найдено",
+    "USB connected": "USB подключён",
+    "USB disconnected": "USB отключён",
+    "Games list updated": "Список игр обновлён"
 }

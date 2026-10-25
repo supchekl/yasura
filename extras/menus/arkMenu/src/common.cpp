@@ -1004,10 +1004,194 @@ static Image* loadRawWallpaper(string path){
     return new Image(t);
 }
 
+float common::easeOut(float t){
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    float u = 1-t;
+    return 1 - u*u*u;
+}
+
+float common::easeBack(float t){
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    const float c1 = 1.70158f, c3 = c1 + 1;
+    float u = t-1;
+    return 1 + c3*u*u*u + c1*u*u;
+}
+
+float common::approach(float cur, float target, float k){
+    float d = target - cur;
+    if (d > -0.5f && d < 0.5f) return target;
+    return cur + d*k;
+}
+
+float common::since(clock_t start, float seconds){
+    clock_t now = clock();
+    if (now < start) return 1; // clock wrapped
+    float t = (float)(now - start) / (CLOCKS_PER_SEC * seconds);
+    return (t > 1)? 1 : t;
+}
+
+void common::setAlpha(int a){
+    if (a >= 255) Image::tint = 0xFFFFFFFF;
+    else Image::tint = ((u32)((a < 0)? 0 : a) << 24) | 0x00FFFFFF;
+}
+
+u32 common::withAlpha(u32 color, int a){
+    if (a < 0) a = 0;
+    if (a > 255) a = 255;
+    return (color & 0x00FFFFFF) | ((((color >> 24) * a) / 255) << 24);
+}
+
+static string note_text;
+static int note_glyph = -1;
+static clock_t note_time = 0;
+
+void common::notify(string text, int glyph){
+    note_text = text;
+    note_glyph = glyph;
+    note_time = clock();
+    if (note_time == 0) note_time = 1;
+}
+
+void common::drawNotification(){
+    if (note_time == 0) return;
+    const float in = 0.3f, stay = 2.4f, out = 0.3f;
+    clock_t now = clock();
+    if (now < note_time){ note_time = 0; return; }
+    float t = (float)(now - note_time) / CLOCKS_PER_SEC;
+    if (t > in + stay + out){ note_time = 0; return; }
+    float pos = (t < in)? easeBack(t/in) : (t < in + stay)? 1.f : 1.f - easeOut((t - in - stay)/out);
+    string text = TR(note_text);
+    int w = calcTextWidth(text.c_str(), SIZE_MEDIUM, 0) + ((note_glyph >= 0)? 52 : 32);
+    if (w < 160) w = 160;
+    int h = 30;
+    int x = (480 - w)/2;
+    int y = (int)(-h - 4 + (h + 10) * pos);
+    getImage(IMAGE_DIALOG)->draw_scale(x, y, w, h);
+    int tx = x + 16;
+    if (note_glyph >= 0 && extras[THEME_CC]){
+        drawSub(extras[THEME_CC], note_glyph*32, 0, 32, 32, x + 12, y + 6, 18, 18);
+        tx = x + 38;
+    }
+    printText(tx, y + 20, text.c_str(), WHITE, SIZE_MEDIUM, 0, NULL, 0);
+}
+
+static bool media_changed = false;
+
+bool common::mediaChanged(bool clear){
+    bool r = media_changed;
+    if (clear) media_changed = false;
+    return r;
+}
+
+/* minimal PNG writer: stored (uncompressed) deflate blocks, so no zlib is needed */
+static u32 crc_table[256];
+static void crcInit(){
+    if (crc_table[1]) return;
+    for (u32 n=0; n<256; n++){
+        u32 c = n;
+        for (int k=0; k<8; k++) c = (c & 1)? 0xEDB88320 ^ (c >> 1) : c >> 1;
+        crc_table[n] = c;
+    }
+}
+static u32 crc(const u8* p, int len, u32 c = 0xFFFFFFFF){
+    for (int i=0; i<len; i++) c = crc_table[(c ^ p[i]) & 0xFF] ^ (c >> 8);
+    return c;
+}
+static void be32w(u8* p, u32 v){ p[0] = v>>24; p[1] = v>>16; p[2] = v>>8; p[3] = v; }
+
+bool common::saveScreenshot(){
+    void* top = NULL; int bw = 0, fmt = 0;
+    sceDisplayGetFrameBuf(&top, &bw, &fmt, PSP_DISPLAY_SETBUF_IMMEDIATE);
+    if (!top || bw <= 0) return false;
+    const int W = 480, H = 272;
+    const int raw = (W*3 + 1) * H; // filter byte + RGB per row
+    const int nblocks = (raw + 65534) / 65535;
+    const int idat = 2 + raw + nblocks*5 + 4;
+    const int size = 8 + 25 + (12 + idat) + 12;
+    u8* png = (u8*)malloc(size);
+    if (!png) return false;
+    crcInit();
+    static const u8 sig[8] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+    memcpy(png, sig, 8);
+    u8* p = png + 8;
+    // IHDR
+    be32w(p, 13); memcpy(p+4, "IHDR", 4);
+    be32w(p+8, W); be32w(p+12, H);
+    p[16] = 8; p[17] = 2; p[18] = 0; p[19] = 0; p[20] = 0; // 8 bit RGB
+    be32w(p+21, ~crc(p+4, 17));
+    p += 25;
+    // IDAT
+    be32w(p, idat); memcpy(p+4, "IDAT", 4);
+    u8* d = p + 8;
+    d[0] = 0x78; d[1] = 0x01;
+    u8* q = d + 2;
+    u32 a = 1, b = 0; // adler32
+    u8* rowbuf = (u8*)malloc(W*3 + 1);
+    int left = raw, row = 0, col = W*3 + 1; // col == row size means "fetch next row"
+    u32* fb32 = (u32*)((u32)top | 0x40000000);
+    u16* fb16 = (u16*)((u32)top | 0x40000000);
+    while (left > 0){
+        int n = (left > 65535)? 65535 : left;
+        left -= n;
+        q[0] = (left == 0)? 1 : 0;
+        q[1] = n & 0xFF; q[2] = n >> 8; q[3] = ~n & 0xFF; q[4] = (~n >> 8) & 0xFF;
+        q += 5;
+        for (int i=0; i<n; i++){
+            if (col == W*3 + 1){
+                rowbuf[0] = 0;
+                for (int x=0; x<W; x++){
+                    u32 c;
+                    if (fmt == PSP_DISPLAY_PIXEL_FORMAT_8888) c = fb32[row*bw + x];
+                    else {
+                        u16 s = fb16[row*bw + x];
+                        c = ((s & 0x1F) << 3) | (((s >> 5) & 0x3F) << 10) | (((s >> 11) & 0x1F) << 19);
+                    }
+                    rowbuf[1 + x*3] = c & 0xFF;
+                    rowbuf[2 + x*3] = (c >> 8) & 0xFF;
+                    rowbuf[3 + x*3] = (c >> 16) & 0xFF;
+                }
+                row++; col = 0;
+            }
+            u8 v = rowbuf[col++];
+            *q++ = v;
+            a = (a + v) % 65521; b = (b + a) % 65521;
+        }
+    }
+    free(rowbuf);
+    be32w(q, (b << 16) | a);
+    be32w(p + 8 + idat, ~crc(p+4, 4 + idat));
+    p += 12 + idat;
+    // IEND
+    be32w(p, 0); memcpy(p+4, "IEND", 4); be32w(p+8, ~crc(p+4, 4));
+
+    pspTime t;
+    sceRtcGetCurrentClockLocalTime(&t);
+    sceIoMkdir("ms0:/PICTURE", 0777);
+    sceIoMkdir("ms0:/PICTURE/Yasura", 0777);
+    char path[96];
+    snprintf(path, sizeof(path), "ms0:/PICTURE/Yasura/SCR_%04d%02d%02d_%02d%02d%02d.png",
+             t.year, t.month, t.day, t.hour, t.minutes, t.seconds);
+    int fd = sceIoOpen(path, PSP_O_WRONLY|PSP_O_CREAT|PSP_O_TRUNC, 0777);
+    bool ok = false;
+    if (fd >= 0){
+        ok = (sceIoWrite(fd, png, size) == size);
+        sceIoClose(fd);
+    }
+    free(png);
+    if (ok) media_changed = true;
+    return ok;
+}
+
 void common::drawSub(Image* img, int sx, int sy, int sw, int sh, int dx, int dy, int dw, int dh){
     if (!img || !img->getTexture()) return;
     ya2d_set_texture(img->getTexture());
     sceGuTexFilter(GU_LINEAR, GU_LINEAR);
+    if (Image::tint != 0xFFFFFFFF){
+        sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
+        sceGuColor(Image::tint);
+    }
     ya2d_vertex_2s3s* v = (ya2d_vertex_2s3s*)sceGuGetMemory(2*sizeof(ya2d_vertex_2s3s));
     v[0].u = sx; v[0].v = sy; v[0].x = dx; v[0].y = dy; v[0].z = 0;
     v[1].u = sx+sw; v[1].v = sy+sh; v[1].x = dx+dw; v[1].y = dy+dh; v[1].z = 0;
@@ -1019,6 +1203,10 @@ void common::drawAppIcon(Image* img, int x, int y, int size){
     ya2d_texture* t = img->getTexture();
     ya2d_set_texture(t);
     sceGuTexFilter(GU_LINEAR, GU_LINEAR); // smooth when shrinking or growing the icon
+    if (Image::tint != 0xFFFFFFFF){
+        sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
+        sceGuColor(Image::tint);
+    }
     ya2d_vertex_2s3s* v = (ya2d_vertex_2s3s*)sceGuGetMemory(2*sizeof(ya2d_vertex_2s3s));
     v[0].u = 0; v[0].v = 0; v[0].x = x; v[0].y = y; v[0].z = 0;
     v[1].u = t->width; v[1].v = t->height; v[1].x = x+size; v[1].y = y+size; v[1].z = 0;
@@ -1027,6 +1215,10 @@ void common::drawAppIcon(Image* img, int x, int y, int size){
         ya2d_texture* g = gloss->getTexture();
         ya2d_set_texture(g);
         sceGuTexFilter(GU_LINEAR, GU_LINEAR);
+        if (Image::tint != 0xFFFFFFFF){
+            sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
+            sceGuColor(Image::tint);
+        }
         ya2d_vertex_2s3s* w = (ya2d_vertex_2s3s*)sceGuGetMemory(2*sizeof(ya2d_vertex_2s3s));
         w[0].u = 0; w[0].v = 0; w[0].x = x; w[0].y = y; w[0].z = 0;
         w[1].u = g->width; w[1].v = g->height; w[1].x = x+size; w[1].y = y+size; w[1].z = 0;

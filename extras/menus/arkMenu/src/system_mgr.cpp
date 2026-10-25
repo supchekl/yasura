@@ -348,15 +348,19 @@ static void systemDrawer(){
 }
 
 /* Screensaver as an iOS lock screen: big clock and date over the wallpaper */
-static void drawLockScreen(){
+/* Screensaver as an iOS lock screen: big clock and date over the wallpaper.
+   oy and alpha animate it in and slide it away when unlocking. */
+static void drawLockScreen(int oy, int alpha){
     pspTime now;
     sceRtcGetCurrentClockLocalTime(&now);
-    ya2d_draw_rect(0, 0, 480, 272, 0x38000000, 1);
+    ya2d_draw_rect(0, 0, 480, 272, common::withAlpha(0x38000000, alpha), 1);
+    u32 white = common::withAlpha(WHITE, alpha), soft = common::withAlpha(0xFFDDDDDD, alpha);
 
     char hm[6];
     snprintf(hm, sizeof(hm), "%02d:%02d", now.hour, now.minutes);
     Image* digits = common::getThemeImage(THEME_CLOCK);
-    int y = 62;
+    int y = 62 + oy;
+    common::setAlpha(alpha);
     if (digits){
         // CLOCK.PNG: eleven cells, 0-9 then ':'
         int cw = digits->getWidth() / 11, ch = digits->getHeight();
@@ -372,7 +376,7 @@ static void drawLockScreen(){
         y += ch;
     }
     else {
-        common::printText(240 - common::calcTextWidth(hm, 3.f, 0)/2, y+60, hm, WHITE, 3.f, 0, NULL, 0);
+        common::printText(240 - common::calcTextWidth(hm, 3.f, 0)/2, y+60, hm, white, 3.f, 0, NULL, 0);
         y += 70;
     }
 
@@ -383,19 +387,50 @@ static void drawLockScreen(){
     char num[8];
     snprintf(num, sizeof(num), "%d ", now.day);
     string date = TR(days[dow % 7]) + ", " + num + TR(string(months[(now.month+11) % 12]) + " of");
-    common::printText(240 - common::calcTextWidth(date.c_str(), SIZE_BIG, 0)/2, y+18, date.c_str(), WHITE, SIZE_BIG, 0, NULL, 0);
+    common::printText(240 - common::calcTextWidth(date.c_str(), SIZE_BIG, 0)/2, y+18, date.c_str(), white, SIZE_BIG, 0, NULL, 0);
 
     if (scePowerIsBatteryExist()){
         char b[16];
         snprintf(b, sizeof(b), "%d%%", scePowerGetBatteryLifePercent());
         string bat = string(b) + (scePowerIsBatteryCharging()? "  " + TR("Charging") : "");
-        common::printText(240 - common::calcTextWidth(bat.c_str(), SIZE_LITTLE, 0)/2, y+38, bat.c_str(), 0xFFDDDDDD, SIZE_LITTLE, 0, NULL, 0);
+        common::printText(240 - common::calcTextWidth(bat.c_str(), SIZE_LITTLE, 0)/2, y+38, bat.c_str(), soft, SIZE_LITTLE, 0, NULL, 0);
     }
 
     Image* cc = common::getThemeImage(THEME_CC);
-    if (cc) common::drawSub(cc, 8*32, 0, 32, 32, 240-9, 18, 18, 18); // lock glyph
+    if (cc) common::drawSub(cc, GLYPH_LOCK*32, 0, 32, 32, 240-9, 18 + oy, 18, 18);
+    common::setAlpha(255);
     string hint = TR("Press any button");
-    common::printText(240 - common::calcTextWidth(hint.c_str(), SIZE_LITTLE, 0)/2, 256, hint.c_str(), 0xFFDDDDDD, SIZE_LITTLE, 0, NULL, 0);
+    common::printText(240 - common::calcTextWidth(hint.c_str(), SIZE_LITTLE, 0)/2, 256 + oy/2, hint.c_str(), soft, SIZE_LITTLE, 0, NULL, 0);
+}
+
+/* App launch: a glass card grows out of the dock icon, like opening an app on iOS */
+static clock_t zoom_start = 0;
+static int zoom_x, zoom_y, zoom_s;
+static Image* zoom_icon = NULL;
+
+static void drawZoom(){
+    if (zoom_start == 0) return;
+    float t = common::since(zoom_start, 0.32f);
+    if (t >= 1){ zoom_start = 0; return; }
+    float e = common::easeOut(t);
+    int x = (int)(zoom_x * (1-e)), y = (int)(zoom_y * (1-e));
+    int w = (int)(zoom_s + (480 - zoom_s) * e), h = (int)(zoom_s + (272 - zoom_s) * e);
+    int a = (int)(255 * (1 - t*t));
+    common::setAlpha(a);
+    Image* panel = common::getDock();
+    if (!panel) panel = common::getImage(IMAGE_DIALOG);
+    panel->draw_scale(x, y, w, h);
+    if (zoom_icon){
+        int s = (int)(zoom_s * (1 + 0.6f*e));
+        common::drawSub(zoom_icon, 0, 0, zoom_icon->getWidth(), zoom_icon->getHeight(), x + w/2 - s/2, y + h/2 - s/2, s, s);
+    }
+    common::setAlpha(255);
+}
+
+void SystemMgr::zoomFrom(int x, int y, int size, Image* icon){
+    zoom_x = x; zoom_y = y; zoom_s = size; zoom_icon = icon;
+    zoom_start = clock();
+    if (zoom_start == 0) zoom_start = 1;
 }
 
 void SystemMgr::drawScreen(){
@@ -410,6 +445,14 @@ void SystemMgr::drawScreen(){
         	common::drawScreen();
     	}
 	}
+    // the lock screen fades in, and slides up and away when unlocking
+    static int last_saver = 0;
+    static clock_t saver_change = 0;
+    if (screensaver != last_saver){
+        last_saver = screensaver;
+        saver_change = clock();
+        if (saver_change == 0) saver_change = 1;
+    }
     if (!screensaver){
         entries[cur_entry]->draw();
         if (!fullscreen){
@@ -421,8 +464,21 @@ void SystemMgr::drawScreen(){
                 common::printText(460, 260, fps.str().c_str());
             }
         }
+        drawZoom();
+        if (saver_change){
+            float t = common::since(saver_change, 0.35f);
+            if (t < 1){
+                float e = common::easeOut(t);
+                drawLockScreen((int)(-110*e), (int)(255*(1-e)));
+            }
+            else saver_change = 0;
+        }
     }
-    else drawLockScreen();
+    else {
+        float e = (saver_change)? common::easeOut(common::since(saver_change, 0.4f)) : 1.f;
+        drawLockScreen((int)(24*(1-e)), (int)(255*e));
+    }
+    common::drawNotification();
 }
 
 static void *_sceImposeGetParam; // int (*)(int)
@@ -455,6 +511,39 @@ static int controlThread(SceSize _args, void *_argp){
     while (running){
         int screensaver_time = screensaver_times[common::getConf()->screensaver];
         pad.update();
+
+        // L+R together: screenshot into Photos
+        static bool combo = false;
+        u32 held = pad.held();
+        if ((held & PSP_CTRL_LTRIGGER) && (held & PSP_CTRL_RTRIGGER)){
+            if (!combo && !screensaver){
+                combo = true;
+                common::playMenuSound();
+                bool ok = common::saveScreenshot();
+                common::notify((ok)? "Screenshot saved to Photos" : "Could not save the screenshot", GLYPH_CAMERA);
+            }
+            last_pressed = clock();
+            sceKernelDelayThread(0);
+            continue;
+        }
+        combo = false;
+
+        // banners for the charger and a low battery, checked about once a second
+        static clock_t power_check = 0;
+        static int was_online = -1, warned = 100;
+        if (clock() - power_check > CLOCKS_PER_SEC || clock() < power_check){
+            power_check = clock();
+            int online = scePowerIsPowerOnline();
+            if (was_online >= 0 && online != was_online)
+                common::notify((online)? "Charger connected" : "Charger disconnected", GLYPH_BOLT);
+            was_online = online;
+            if (scePowerIsBatteryExist() && !online){
+                int pct = scePowerGetBatteryLifePercent();
+                if (pct >= 0 && pct <= 10 && warned > 10){ warned = 10; common::notify("Battery low: 10%", GLYPH_BATTERY); }
+                else if (pct > 10 && pct <= 20 && warned > 20){ warned = 20; common::notify("Battery low: 20%", GLYPH_BATTERY); }
+            }
+            else if (online) warned = 100;
+        }
 
         if (pad.triangle() && !screensaver){
             SystemMgr::changeMenuState();

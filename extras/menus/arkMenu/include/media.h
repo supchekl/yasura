@@ -43,18 +43,17 @@ class MediaGallery : public SystemEntry{
         Image* view;
         bool slideshow;
         clock_t slide_time;
-        std::string toast;
-        clock_t toast_time;
+        clock_t view_time; // open zoom and browse slide
+        int view_dir;      // 0 opening, 1 next, -1 previous
+        float plate_x, plate_y;
 
         void scan();
         void scanDir(std::string dir, int depth);
         void clearItems();
         void openViewer(int i);
         void closeViewer();
-        void showToast(std::string msg);
         void drawViewer();
         void drawVideoCard();
-        void drawToast();
 
         static int loader(SceSize args, void* argp);
 

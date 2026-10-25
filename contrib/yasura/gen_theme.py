@@ -371,10 +371,12 @@ def clock_digits(cell_w=44, h=72, px=78):
 
 
 def cc_glyphs(cell=32):
-    """Control center glyph strip (CCICONS.PNG): play, usb, moon, refresh, music, battery, card, bolt, lock."""
-    img = Image.new("RGBA", (cell * 9, cell), (0, 0, 0, 0))
+    """Control center glyph strip (CCICONS.PNG): play, usb, moon, refresh, music, battery, card, bolt, lock,
+    search, camera, image, game controller."""
+    names = ["play", "usb", "moon", "refresh", "musical-notes", "battery-half", "sd", "flash", "lock-closed",
+             "search", "camera", "image", "game-controller"]
+    img = Image.new("RGBA", (cell * len(names), cell), (0, 0, 0, 0))
     big = cell * S
-    names = ["play", "usb", "moon", "refresh", "musical-notes", "battery-half", "sd", "flash", "lock-closed"]
     for i, n in enumerate(names):
         if n == "usb" or n == "sd":
             g = Image.new("RGBA", (big, big), (0, 0, 0, 0))

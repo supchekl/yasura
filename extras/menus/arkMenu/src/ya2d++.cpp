@@ -4,6 +4,8 @@
 #include <pspgu.h>
 #include <pspgum.h>
 
+u32 Image::tint = 0xFFFFFFFF;
+
 Image::Image(){
     this->is_system_image = false;
     this->slice = 0;
@@ -138,6 +140,10 @@ void Image::draw_slice(int x, int y, int newWidth, int newHeight){
     short dy[4] = {(short)y, (short)(y+db), (short)(y+newHeight-db), (short)(y+newHeight)};
 
     ya2d_set_texture(texture);
+    if (tint != 0xFFFFFFFF){
+        sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
+        sceGuColor(tint);
+    }
     struct ya2d_vertex_2s3s *v = (struct ya2d_vertex_2s3s*)sceGuGetMemory(18 * sizeof(struct ya2d_vertex_2s3s));
     int n = 0;
     for (int j=0; j<3; j++){

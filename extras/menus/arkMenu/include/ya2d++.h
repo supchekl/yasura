@@ -18,6 +18,7 @@ class Image{
     public:
         bool is_system_image;
         int slice; // nine-slice border in texels, 0 = plain stretch
+        static u32 tint; // ABGR color multiplied into nine-slice and common::drawSub draws, for fades
     
         Image();
         Image(ya2d_texture* tex);

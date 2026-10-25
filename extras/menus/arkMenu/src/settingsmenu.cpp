@@ -13,6 +13,7 @@ extern string ark_version;
 SettingsMenu::SettingsMenu(SettingsTable* table, bool shorten_paths, bool show_all_opts, bool show_info){
     this->animation = -1;
     this->index = 0;
+    this->sel_y = -1;
     this->start = 0;
     this->w = 0;
     this->h = 0;
@@ -54,6 +55,7 @@ void SettingsMenu::setCustomText(string text[], int n){
     this->customText = text;
     this->ntext = n;
     animation = -1;
+    sel_y = -1;
     while (animation != 0)
         sceKernelDelayThread(0);
 }
@@ -158,13 +160,18 @@ void SettingsMenu::draw(){
             
             int yoffset = y+40;
             int xoffset = x+10;
+
+            // the highlight glides to the selected row
+            float target = yoffset - 12 + (index - start)*15;
+            if (sel_y < 0 || animation != 0) sel_y = target;
+            sel_y = common::approach(sel_y, target, 0.35f);
+            common::drawSelection(x+4, (int)sel_y, MENU_W-8, 16);
         
             // draw each entry
             for (int i=start; i<min(start+PAGE_SIZE, table->max_options); i++){
                 unsigned char sel = table->settings_entries[i]->selection;
                 // draw highlighted entry
                 if (i==index){
-                    common::drawSelection(x+4, yoffset-12, MENU_W-8, 16);
                     common::printText(xoffset, yoffset, table->settings_entries[i]->description, WHITE, SIZE_MEDIUM, 0, &scroll, !shorten_paths);
                     // arrows around the value hint that left/right change it
                     common::printText(xoffset+245, yoffset, "<", 0xFFAAAAAA, SIZE_MEDIUM, 0, NULL, 0);

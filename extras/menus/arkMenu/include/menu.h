@@ -36,6 +36,16 @@ class Menu{
         bool initLoad;
         bool stopLoading;
         vector<Entry*>* entries;
+
+        /* home screen animation state */
+        float pop[GRID_PAGE]; // 0 = resting icon, 1 = selected and grown
+        float plate_x, plate_y, plate_s; // selection glass, glides between icons
+        bool plate_valid;
+        int shown_page, page_from;
+        float page_off; // horizontal slide while turning a page
+        clock_t appear_time; // icons pop in one after another
+        float dot_x; // the wide page dot glides too
+        void drawPage(int page, int xoff, bool focused, bool with_plate);
         
         void freeIcons();
         bool checkIconsNeeded(bool isSelected);
@@ -48,6 +58,7 @@ class Menu{
         void draw(bool selected);
         void drawGrid(bool focused); // one page of rounded app icons with labels and page dots
         void setIndex(int i);
+        void startAppear(); // replay the pop-in animation (section switch, coming back home)
         int getPageCount();
         
         void loadIconsDynamic(bool isSelected);

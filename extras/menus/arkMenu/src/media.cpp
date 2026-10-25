@@ -133,7 +133,9 @@ MediaGallery::MediaGallery(int kind){
     view = NULL;
     slideshow = false;
     slide_time = 0;
-    toast_time = 0;
+    view_time = 0;
+    view_dir = 0;
+    plate_x = plate_y = -1;
 }
 
 MediaGallery::~MediaGallery(){
@@ -276,7 +278,7 @@ void MediaGallery::resume(){
         MediaGallery* self = this;
         sceKernelStartThread(thread, sizeof(self), &self);
     }
-    if (!scanned) scan();
+    if (!scanned || common::mediaChanged(true)) scan(); // a screenshot may have landed in PICTURE
     paused = false;
 }
 
@@ -321,7 +323,6 @@ void MediaGallery::draw(){
     if (viewing){
         if (kind == MEDIA_PHOTO) drawViewer();
         else drawVideoCard();
-        drawToast();
         return;
     }
 
@@ -338,7 +339,6 @@ void MediaGallery::draw(){
         icon->draw_scale(240-36, 60, 72, 72);
         common::printText(240 - common::calcTextWidth(a.c_str(), SIZE_BIG, 0)/2, 160, a.c_str(), WHITE, SIZE_BIG, 0, NULL, 0);
         common::printText(240 - common::calcTextWidth(b.c_str(), SIZE_LITTLE, 0)/2, 182, b.c_str(), 0xFFDDDDDD, SIZE_LITTLE, 0, NULL, 0);
-        drawToast();
         return;
     }
 
@@ -354,8 +354,12 @@ void MediaGallery::draw(){
         int s = (sel)? TILE+6 : TILE;
         int dx = x - (s-TILE)/2, dy = y - (s-TILE)/2;
         if (sel){
+            // the highlight glides between tiles instead of jumping
+            if (plate_x < 0){ plate_x = dx-4; plate_y = dy-4; }
+            plate_x = common::approach(plate_x, dx-4);
+            plate_y = common::approach(plate_y, dy-4);
             Image* plate = common::getPlate();
-            if (plate) plate->draw_scale(dx-4, dy-4, s+8, s+8);
+            if (plate) plate->draw_scale((int)plate_x, (int)plate_y, s+8, s+8);
         }
         if (it->thumb){
             common::drawSub(it->thumb, 0, 0, it->thumb->getWidth(), it->thumb->getHeight(), dx, dy, s, s);
@@ -383,30 +387,14 @@ void MediaGallery::draw(){
         for (int p=0; p<pages && p<30; p++)
             ya2d_draw_rect(x + p*10, 238, 6, 6, (p == cur)? WHITE : 0x70FFFFFF, 1);
     }
-    drawToast();
-}
-
-void MediaGallery::showToast(std::string msg){
-    toast = msg;
-    toast_time = clock();
-}
-
-void MediaGallery::drawToast(){
-    if (toast.empty()) return;
-    if ((clock() - toast_time) > 2*CLOCKS_PER_SEC || clock() < toast_time){
-        toast = "";
-        return;
-    }
-    std::string t = TR(toast);
-    int w = common::calcTextWidth(t.c_str(), SIZE_MEDIUM, 0) + 30;
-    common::getImage(IMAGE_DIALOG)->draw_scale((480-w)/2, 120, w, 28);
-    common::printText((480-w)/2 + 15, 139, t.c_str(), WHITE, SIZE_MEDIUM, 0, NULL, 0);
 }
 
 void MediaGallery::openViewer(int i){
     if (i < 0 || i >= (int)items.size()) return;
     index = i;
+    if (!viewing) view_dir = 0;
     viewing = true;
+    view_time = clock();
     if (kind == MEDIA_VIDEO) return; // the video card only needs the thumbnail
     view_loading = true;
     Image* pic = loadPicture(items[i]->path);
@@ -420,7 +408,7 @@ void MediaGallery::openViewer(int i){
             freePicture(pic);
         }
     }
-    else showToast("This picture is too big to open");
+    else common::notify("This picture is too big to open", GLYPH_IMAGE);
     Image* old = view;
     SystemMgr::pauseDraw();
     view = fit;
@@ -428,6 +416,7 @@ void MediaGallery::openViewer(int i){
     SystemMgr::resumeDraw();
     if (old) freePicture(old);
     slide_time = clock();
+    view_time = clock();
 }
 
 void MediaGallery::closeViewer(){
@@ -453,8 +442,15 @@ void MediaGallery::drawViewer(){
     // fit small pictures too, keeping the aspect ratio
     float s = min(480.f/w, 272.f/h);
     if (s > 1.f && w > 240) s = 1.f;
+    // opening zooms the photo up from the grid, browsing slides it in from the side
+    float e = common::easeOut(common::since(view_time, 0.28f));
+    int ox = 0;
+    if (view_dir == 0) s *= 0.8f + 0.2f*e;
+    else ox = (int)(view_dir * 80 * (1-e));
     int dw = (int)(w*s), dh = (int)(h*s);
-    common::drawSub(view, 0, 0, w, h, (480-dw)/2, (272-dh)/2, dw, dh);
+    common::setAlpha((int)(255*e));
+    common::drawSub(view, 0, 0, w, h, (480-dw)/2 + ox, (272-dh)/2, dw, dh);
+    common::setAlpha(255);
     if (slideshow){
         std::string t = TR("Slideshow");
         common::printText(472 - common::calcTextWidth(t.c_str(), SIZE_LITTLE, 0), 14, t.c_str(), WHITE, SIZE_LITTLE, 0, NULL, 0);
@@ -463,8 +459,9 @@ void MediaGallery::drawViewer(){
 
 void MediaGallery::drawVideoCard(){
     MediaItem* it = items[index];
-    ya2d_draw_rect(0, 0, 480, 272, 0x90000000, 1);
-    int x = 40, y = 40, w = 400, h = 180;
+    float e = common::easeOut(common::since(view_time, 0.28f));
+    ya2d_draw_rect(0, 0, 480, 272, common::withAlpha(0x90000000, (int)(255*e)), 1);
+    int x = 40, y = 40 + (int)(30*(1-e)), w = 400, h = 180;
     common::getImage(IMAGE_DIALOG)->draw_scale(x, y, w, h);
     int tx = x + 14, ty = y + 14;
     if (it->thumb) common::drawSub(it->thumb, 0, 0, it->thumb->getWidth(), it->thumb->getHeight(), tx, ty, 96, 96);
@@ -501,12 +498,13 @@ void MediaGallery::control(Controller* pad){
         if (next || prev){
             int n = items.size();
             int i = (index + (next? 1 : n-1)) % n;
+            view_dir = (next)? 1 : -1;
             if (!slideshow) common::playMenuSound();
             openViewer(i);
         }
         else if (pad->square() && view){
             common::playMenuSound();
-            showToast(common::setPhotoWallpaper(view)? "Wallpaper set" : "Could not save the wallpaper");
+            common::notify(common::setPhotoWallpaper(view)? "Wallpaper set" : "Could not save the wallpaper", GLYPH_IMAGE);
         }
         else if (pad->start()){
             slideshow = !slideshow;

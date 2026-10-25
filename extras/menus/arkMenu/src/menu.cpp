@@ -17,6 +17,14 @@ Menu::Menu(EntryType t){
     this->initLoad = false;
     this->stopLoading = false;
     this->entries = new vector<Entry*>();
+    for (int i=0; i<GRID_PAGE; i++) this->pop[i] = 0;
+    this->plate_x = this->plate_y = this->plate_s = 0;
+    this->plate_valid = false;
+    this->shown_page = 0;
+    this->page_from = 0;
+    this->page_off = 0;
+    this->appear_time = 0;
+    this->dot_x = -1;
     if (iconSema < 0)
         iconSema = sceKernelCreateSema("icon_sema",  0, 1, 1, NULL);
 }
@@ -254,30 +262,62 @@ static string fitLabel(const string& name, int max_w){
     return s + "...";
 }
 
-void Menu::drawGrid(bool focused){
-    if (this->getVectorSize() == 0) return;
-    this->checkIndex();
+void Menu::startAppear(){
+    this->appear_time = clock();
+    if (this->appear_time == 0) this->appear_time = 1;
+    this->plate_valid = false;
+}
 
-    const int size = 52, cell_w = 88, top = 26, row_h = 74;
-    const int left = (480 - GRID_COLS*cell_w)/2;
-    int start = pageStart(this->index);
+static const int GRID_ICON = 52, GRID_CELL = 88, GRID_TOP = 26, GRID_ROW = 74;
+
+void Menu::drawPage(int page, int xoff, bool focused, bool with_plate){
+    const int left = (480 - GRID_COLS*GRID_CELL)/2;
+    int start = page*GRID_PAGE;
     Image* wait = common::getImage(IMAGE_WAITICON);
+    bool current = (page == this->index / GRID_PAGE);
+
+    // the selection glass glides to the selected icon
+    if (with_plate && focused && current){
+        int k = this->index - start;
+        int cx = left + (k % GRID_COLS)*GRID_CELL + GRID_CELL/2 + xoff;
+        int y = GRID_TOP + (k / GRID_COLS)*GRID_ROW;
+        float s = GRID_ICON + 8 + 10;
+        float tx = cx - s/2, ty = y + GRID_ICON/2 - s/2;
+        if (!plate_valid){ plate_x = tx; plate_y = ty; plate_s = s; plate_valid = true; }
+        plate_x = common::approach(plate_x, tx, 0.35f);
+        plate_y = common::approach(plate_y, ty, 0.35f);
+        plate_s = common::approach(plate_s, s, 0.35f);
+        Image* plate = common::getPlate();
+        if (plate) plate->draw_scale((int)plate_x, (int)plate_y, (int)plate_s, (int)plate_s);
+    }
 
     for (int k = 0; k < GRID_PAGE && start+k < (int)this->getVectorSize(); k++){
         Entry* e = this->getEntry(start+k);
         int col = k % GRID_COLS, row = k / GRID_COLS;
-        int cx = left + col*cell_w + cell_w/2;
-        int y = top + row*row_h;
+        int cx = left + col*GRID_CELL + GRID_CELL/2 + xoff;
+        int y = GRID_TOP + row*GRID_ROW;
         bool sel = focused && (start+k == this->index);
-        int s = (sel)? size+8 : size;
-        int x = cx - s/2;
-        int iy = y + (size - s)/2;
 
-        if (sel){
-            Image* plate = common::getPlate();
-            if (plate) plate->draw_scale(x-5, iy-5, s+10, s+10);
+        // springy grow of the selected icon
+        float p = 0;
+        if (current){
+            pop[k] = common::approach(pop[k]*100, (sel)? 100 : 0, 0.3f) / 100.f;
+            p = pop[k];
         }
+        // staggered pop-in when the section appears
+        float scale = 1.f;
+        int alpha = 255;
+        if (appear_time){
+            clock_t t0 = appear_time + (clock_t)(k * 0.025f * CLOCKS_PER_SEC);
+            float t = (clock() < t0)? 0 : common::since(t0, 0.35f);
+            scale = 0.4f + 0.6f*common::easeBack(t);
+            alpha = (int)(255*common::easeOut(t));
+        }
+        int s = (int)((GRID_ICON + 8*p) * scale);
+        int x = cx - s/2;
+        int iy = y + (GRID_ICON - s)/2;
 
+        common::setAlpha(alpha);
         Image* round = e->getAppIcon();
         Image* icon = e->getIcon();
         if (round){
@@ -291,23 +331,51 @@ void Menu::drawGrid(bool focused){
         else {
             common::getImage(IMAGE_DIALOG)->draw_scale(x, iy, s, s);
         }
+        common::setAlpha(255);
 
         string name = e->getAppLabel();
         if (name == "Recovery Menu" || name == "UMD Drive") name = TR(name);
-        string label = fitLabel(name, cell_w-6);
+        string label = fitLabel(name, GRID_CELL-6);
         int tw = common::calcTextWidth(label.c_str(), SIZE_LITTLE, 0);
-        common::printText(cx - tw/2, y + size + 15, label.c_str(), (sel)? WHITE : 0xFFE6E6E6, SIZE_LITTLE, 0, NULL, 0);
+        common::printText(cx - tw/2, y + GRID_ICON + 15, label.c_str(), common::withAlpha((sel)? WHITE : 0xFFE6E6E6, alpha), SIZE_LITTLE, 0, NULL, 0);
     }
+}
 
-    // page dots
+void Menu::drawGrid(bool focused){
+    if (this->getVectorSize() == 0) return;
+    this->checkIndex();
+
+    // turning a page slides the old one out and the new one in
+    int page = this->index / GRID_PAGE;
+    if (page != shown_page){
+        page_from = shown_page;
+        page_off = (page > shown_page)? 480 : -480;
+        shown_page = page;
+        for (int i=0; i<GRID_PAGE; i++) pop[i] = 0;
+        plate_valid = false;
+    }
+    page_off = common::approach(page_off, 0, 0.22f);
+    int off = (int)page_off;
+    if (off != 0){
+        int dir = (page_off > 0)? 1 : -1;
+        drawPage(page_from, off - dir*480, false, false);
+    }
+    drawPage(page, off, focused, off == 0);
+    if (appear_time && common::since(appear_time, 0.35f + GRID_PAGE*0.025f) >= 1) appear_time = 0;
+
+    // page dots, the current one is a wide pill that glides
     int pages = this->getPageCount();
     if (pages > 1 && focused){ // the dock shows its app name here instead
-        int cur = this->index / GRID_PAGE;
-        int w = pages*10 - 4;
+        int w = pages*10 + 6;
         int x = (480 - w)/2;
+        float target = x + page*10;
+        if (dot_x < 0) dot_x = target;
+        dot_x = common::approach(dot_x, target, 0.3f);
         for (int p = 0; p < pages; p++){
-            ya2d_draw_rect(x + p*10, 180, 6, 6, (p == cur)? WHITE : 0x70FFFFFF, 1);
+            int px = x + p*10 + ((p > page)? 6 : 0);
+            if (p != page) ya2d_draw_rect(px, 180, 6, 6, 0x70FFFFFF, 1);
         }
+        ya2d_draw_rect((int)dot_x, 180, 12, 6, WHITE, 1);
     }
 }
 

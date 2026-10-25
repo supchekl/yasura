@@ -17,6 +17,7 @@ namespace SystemMgr{
     extern void changeMenuState();
     extern SystemEntry* getSystemEntry(unsigned index);
     extern void openEntry(unsigned index); // switch to another launcher app, like picking it in the triangle menu
+    extern void zoomFrom(int x, int y, int size, Image* icon); // app opening animation from an icon
     void setSystemEntry(SystemEntry* entry, unsigned index);
 };
 

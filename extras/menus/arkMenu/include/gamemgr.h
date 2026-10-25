@@ -45,6 +45,15 @@ class GameManager : public SystemEntry{
         int dock_focus;
         /* Control center (SELECT): -1 closed, else the focused button */
         int cc_focus;
+        clock_t cc_time; // control center slide in/out
+        bool cc_closing;
+        void closeControlCenter();
+        void searchGames();
+        /* dock animation */
+        float dock_plate_x;
+        float dock_pop[12];
+        clock_t dock_appear;
+        int dock_icon_x(int slot, int n);
         void drawControlCenter();
         void controlCenter(Controller* pad);
         void drawDock();
@@ -130,6 +139,8 @@ class GameManager : public SystemEntry{
                 sceKernelDelayThread(60000);
             }
             if (selectedCategory == -2) selectedCategory = -1;
+            if (selectedCategory >= 0) categories[selectedCategory]->startAppear();
+            dock_appear = clock();
             resumeIcons();
         }
         
