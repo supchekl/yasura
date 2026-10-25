@@ -125,6 +125,11 @@ class GameManager : public SystemEntry{
         
         string getInfo();
         string getFooter();
+        string getHints(){
+            if (optionsmenu) return "UD:Choose;X:OK;O:Back";
+            if (selectedCategory >= 0) return "X:Open;L:Info;LR:Section;SE:Refresh;T:Menu";
+            return "T:Menu";
+        }
         
         string getName(){
             return "Games";

@@ -23,7 +23,7 @@
 #define PAGE_SIZE 10 // maximum entries shown on screen
 #define BUF_SIZE 1024*16 // 16 kB buffer for copying files
 #define MENU_W 410
-#define MENU_H 230
+#define MENU_H 214
 #define MAX_SCROLL_TIME 50
 
 #include "browser_entries.h"
@@ -732,6 +732,9 @@ void Browser::drawScreen(){
     // draw each entry
     for (int i=this->start; i<min(this->start+PAGE_SIZE, (int)entries->size()); i++){
         File* e = (File*)this->entries->at(i);
+        // highlight behind the focused row
+        if (i == index && this->enableSelection)
+            common::drawSelection(xoffset-46, yoffset-14, MENU_W-8, 19);
         // draw checkbox
         common::getCheckbox((int)e->isSelected())->draw(xoffset-40, yoffset-10);
         // draw focused entry
@@ -1586,9 +1589,7 @@ void Browser::toggleUSB() {
 void Browser::drawOptionsMenu(){
 
     switch (optionsDrawState){
-        case 0:
-            common::getImage(IMAGE_DIALOG)->draw_scale(0, 232, 40, 40);
-            common::printText(5, 252, "...", GRAY_COLOR, 2.f, 0, 0, 0);
+        case 0: // closed, the hint bar already tells how to open it
             break;
         case 1: // draw opening animation
             common::getImage(IMAGE_DIALOG)->draw_scale(optionsAnimX, optionsAnimY, 132, 220);
@@ -1600,17 +1601,18 @@ void Browser::drawOptionsMenu(){
         case 2: // draw menu
             optionsAnimX = 0;
             optionsAnimY = 52;
-            common::getImage(IMAGE_DIALOG)->draw_scale(0, 32, 140, 240);
+            common::getImage(IMAGE_DIALOG)->draw_scale(6, 30, 140, 214);
         
             {
-            int x = 10;
+            int x = 18;
             int y = 55;
             static TextScroll scroll = {0, 0, 0, 125};
             for (int i=0; i<max_options; i++){
                 if (this->clipboard->size()<1 && i == 3) continue; // Hide Paste unless clipboard has something in it.
                 if (pEntries[i] == NULL) continue;
                 if (i == pEntryIndex){
-                    common::printText(x, y, pEntries[i], LITEGRAY, SIZE_BIG, true, &scroll);
+                    common::drawSelection(x-8, y-14, 128, 19);
+                    common::printText(x, y, pEntries[i], WHITE, SIZE_MEDIUM, 0, &scroll);
                 }
                 else {
                     int tw = common::calcTextWidth(pEntries[i], SIZE_LITTLE);

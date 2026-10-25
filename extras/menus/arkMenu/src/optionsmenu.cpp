@@ -7,11 +7,11 @@ OptionsMenu::OptionsMenu(char* description, int n_options, t_options_entry* entr
     this->n_options = n_options;
     this->entries = entries;
     this->index = 0;
-    this->w = min(this->maxString(), 300);
-    this->h = 30 + 15*n_options;
+    this->w = max(min(this->maxString()+10, 320), 170);
+    this->h = 42 + 18*n_options;
     this->x = (480-w)/2;
     this->y = (272-h)/2;
-    this->scroll.w = 280;
+    this->scroll.w = this->w - 28;
 }
 
 OptionsMenu::~OptionsMenu(){
@@ -31,16 +31,21 @@ int OptionsMenu::maxString(){
 void OptionsMenu::draw(){
     common::getImage(IMAGE_DIALOG)->draw_scale(x, y, w, h);
     
-    int xoffset = x+10;
-    int yoffset = y+15;
+    int xoffset = x+14;
+    int yoffset = y+20;
     
-    common::printText(xoffset+10, yoffset, description);
+    // title and a hairline under it
+    common::printText(xoffset, yoffset, description, WHITE, SIZE_MEDIUM);
+    ya2d_draw_rect(x+10, y+28, w-20, 1, 0x40FFFFFF, 1);
+    yoffset += 12;
     
     for (int i=0; i<n_options; i++){
-        yoffset+=15;
+        yoffset+=18;
         
-        if (i == index)
-            common::printText(xoffset, yoffset, entries[i].name, LITEGRAY, SIZE_MEDIUM, 1, &scroll);
+        if (i == index){
+            common::drawSelection(x+6, yoffset-13, w-12, 18);
+            common::printText(xoffset, yoffset, entries[i].name, WHITE, SIZE_MEDIUM, 0, &scroll);
+        }
         else {
             string s = TR(entries[i].name);
             int tw = common::calcTextWidth(s.c_str(), SIZE_LITTLE);

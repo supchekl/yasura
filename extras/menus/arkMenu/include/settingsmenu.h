@@ -93,6 +93,11 @@ class SettingsMenu : public SystemEntry{
         string getFooter() {
             return this->footer;
         }
+
+        string getHints(){
+            if (this->reset_callback) return "UD:Choose;LR:Change;X:Save;S:Reset;T:Menu";
+            return "UD:Choose;LR:Change;X:Save;T:Menu";
+        }
         
         Image* getIcon(){
             return common::getImage(icon);

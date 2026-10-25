@@ -22,10 +22,13 @@ class SystemEntry{
         virtual void setFooter(std::string footer)=0;
         virtual std::string getName()=0;
         virtual bool isStillLoading()=0;
+        // Button hints shown in the bottom bar, see common::drawHints()
+        virtual std::string getHints(){ return ""; }
         virtual void drawInfo(){
             scroll.w = 200;
             common::printText(5, 13, this->getInfo().c_str(), LITEGRAY, SIZE_MEDIUM, 0, &scroll);
-            common::printText(180, 268, this->getFooter().c_str(), LITEGRAY, SIZE_MEDIUM, 0);
+            if (this->getHints().empty())
+                common::printText(180, 268, this->getFooter().c_str(), LITEGRAY, SIZE_MEDIUM, 0);
         }
 };
 

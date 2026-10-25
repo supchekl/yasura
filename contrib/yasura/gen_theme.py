@@ -347,6 +347,84 @@ def rim(size=48):
     return down(img, size, size)
 
 
+
+TEXT_BOLD = "/usr/share/fonts/opentype/inter/Inter-Bold.otf"
+
+
+def _btn_base(w, h):
+    B_w, B_h = w * S, h * S
+    img = Image.new("RGBA", (B_w, B_h), (0, 0, 0, 0))
+    m = squircle_mask(B_w, B_h, min(B_w, B_h) // 2, n=2.0)
+    img.alpha_composite(with_alpha(vgrad(B_w, B_h, (255, 255, 255, 70), (255, 255, 255, 30)), m))
+    inner = Image.new("L", (B_w, B_h), 0)
+    inner.paste(squircle_mask(B_w - 2 * S, B_h - 2 * S, min(B_w, B_h) // 2 - S, n=2.0), (S, S))
+    ring = ImageChops.subtract(m, inner)
+    rl = Image.new("RGBA", (B_w, B_h), (255, 255, 255, 0))
+    rl.putalpha(ring.point(lambda v: v * 0.6))
+    img.alpha_composite(rl)
+    return img
+
+
+def face_button(kind, size=14):
+    """PSP face buttons in their classic colours on a small glass disc."""
+    img = _btn_base(size, size)
+    d = ImageDraw.Draw(img)
+    B = size * S
+    c = B / 2
+    r = B * 0.24
+    lw = int(1.6 * S)
+    if kind == "X":
+        col = (130, 180, 255, 255)
+        d.line((c - r, c - r, c + r, c + r), fill=col, width=lw)
+        d.line((c - r, c + r, c + r, c - r), fill=col, width=lw)
+    elif kind == "O":
+        col = (255, 110, 130, 255)
+        d.ellipse((c - r, c - r, c + r, c + r), outline=col, width=lw)
+    elif kind == "T":
+        col = (100, 225, 165, 255)
+        d.polygon([(c, c - r * 1.1), (c + r * 1.05, c + r * 0.75), (c - r * 1.05, c + r * 0.75)], outline=col, width=lw)
+    elif kind == "S":
+        col = (255, 140, 215, 255)
+        d.rectangle((c - r * 0.9, c - r * 0.9, c + r * 0.9, c + r * 0.9), outline=col, width=lw)
+    return down(img, size, size)
+
+
+def pill_button(label, w, h=14, px=8):
+    img = _btn_base(w, h)
+    text(img, (w * S / 2, h * S / 2 + 0.3 * S), label, px * S, (255, 255, 255, 255), TEXT_BOLD)
+    return down(img, w, h)
+
+
+def dpad(arms, size=14):
+    """D-pad glyph; the arms named in `arms` (u, d, l, r) are lit."""
+    B = size * S
+    img = Image.new("RGBA", (B, B), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    t = B * 0.34
+    c = B / 2
+    boxes = {
+        "u": (c - t / 2, S, c + t / 2, c - t / 2 + S),
+        "d": (c - t / 2, c + t / 2 - S, c + t / 2, B - S),
+        "l": (S, c - t / 2, c - t / 2 + S, c + t / 2),
+        "r": (c + t / 2 - S, c - t / 2, B - S, c + t / 2),
+    }
+    d.rectangle((c - t / 2, c - t / 2, c + t / 2, c + t / 2), fill=(255, 255, 255, 110))
+    for k, box in boxes.items():
+        d.rounded_rectangle(box, radius=S, fill=(255, 255, 255, 255 if k in arms else 90))
+    return down(img, size, size)
+
+
+def hint_buttons(out):
+    for k in "XOTS":
+        face_button(k).save(os.path.join(out, "BTN_%s.PNG" % k))
+    pill_button("L", 18).save(os.path.join(out, "BTN_L.PNG"))
+    pill_button("R", 18).save(os.path.join(out, "BTN_R.PNG"))
+    pill_button("START", 34, px=7).save(os.path.join(out, "BTN_ST.PNG"))
+    pill_button("SELECT", 38, px=7).save(os.path.join(out, "BTN_SE.PNG"))
+    dpad("ud").save(os.path.join(out, "BTN_UD.PNG"))
+    dpad("lr").save(os.path.join(out, "BTN_LR.PNG"))
+    dpad("udlr").save(os.path.join(out, "BTN_DP.PNG"))
+
 def main():
     out, sounds = sys.argv[1], sys.argv[2]
     os.makedirs(out, exist_ok=True)
@@ -367,6 +445,7 @@ def main():
     dialog_box().save(os.path.join(out, "BOX.PNG"))
     plate().save(os.path.join(out, "PLATE.PNG"))
     rim().save(os.path.join(out, "RIM.PNG"))
+    hint_buttons(out)
     for snd in ("BOOT.MP3", "SOUND.MP3"):
         shutil.copy(os.path.join(sounds, snd), os.path.join(out, snd))
     # Full-size XMB wallpaper, set on the PSP via Settings > Theme Settings > Wallpaper.

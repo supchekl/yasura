@@ -111,6 +111,8 @@ namespace common{
     extern Image* getIcon(int which);
     extern Image* getPlate(); // optional selection backdrop, may be NULL
     extern Image* getRim(); // optional selection outline, may be NULL
+    extern void drawSelection(int x, int y, int w, int h); // highlight behind a selected row
+    extern void drawHints(string spec); // bottom button hint bar, spec is "X:Label;O:Label;..."
     extern Image* getCheckbox(int which);
     extern bool isSharedImage(Image* img);
     extern intraFont* getFont();

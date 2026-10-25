@@ -74,6 +74,12 @@ class Entry{
         
         int icon1_size;
         int at3_size;
+
+        /* Cached game details for the launch screen card */
+        bool has_details;
+        string detail_title, detail_id, detail_type, detail_size;
+        void loadDetails();
+        void drawDetails();
         
         virtual void doExecute()=0;
                 

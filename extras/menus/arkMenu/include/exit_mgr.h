@@ -33,6 +33,10 @@ class ExitManager : public SystemEntry{
         void draw(){
             if (optionsmenu) optionsmenu->draw();
         };
+        std::string getHints(){
+            if (optionsmenu) return "UD:Choose;X:OK;O:Back";
+            return "T:Menu";
+        }
         void control(Controller* pad){
             if (canceled) return;
             common::saveConf();

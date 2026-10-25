@@ -76,7 +76,12 @@ class Browser : public SystemEntry{
         void setFooter(string footer){};
         void setName(string name){};
         
-        string getFooter(){}
+        string getFooter(){ return ""; }
+        string getHints(){
+            if (optionsDrawState != 0) return "DP:Choose;X:OK;O:Back";
+            if (optionsmenu) return "UD:Choose;X:OK;O:Back";
+            return "X:Open;O:Up;S:Mark;L:Actions;T:Menu";
+        }
         string getInfo(){
             return this->cwd;
         }
@@ -84,10 +89,10 @@ class Browser : public SystemEntry{
         void drawInfo(){
             static TextScroll scroll;
             if (devsize.size() > 0){
-                int w = common::calcTextWidth(cwd.c_str(), SIZE_MEDIUM, 0);
-                scroll.w = 150;
-                common::printText(5, 13, cwd.c_str(), LITEGRAY, SIZE_MEDIUM, 0, NULL, 0);
-                common::printText(5+w, 13, string(" ("+TR("Free size")+": "+devsize+")").c_str(), LITEGRAY, SIZE_MEDIUM, 0, &scroll);
+                // one string, so the path and the free space can't overlap
+                string header = cwd + "   " + TR("Free size") + ": " + devsize;
+                scroll.w = 300;
+                common::printText(5, 13, header.c_str(), LITEGRAY, SIZE_MEDIUM, 0, &scroll, 0);
             }
             else{
                 scroll.w = 200;

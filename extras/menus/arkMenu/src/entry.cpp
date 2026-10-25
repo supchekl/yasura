@@ -8,6 +8,8 @@
 #include "music_player.h"
 #include "pspav.h"
 #include "pspav_wrapper.h"
+#include "lang.h"
+#include <cctype>
 
 extern "C" int sceDisplaySetHoldMode(int);
 
@@ -51,10 +53,62 @@ int gameBootThread(SceSize _args, void *_argp){
 }
 
 Entry::Entry(){
-
+    this->has_details = false;
 }
 
 Entry::Entry(string path){
+    this->has_details = false;
+}
+
+void Entry::loadDetails(){
+    SfoInfo info = this->getSfoInfo();
+    detail_title = (info.title[0])? info.title : name;
+    detail_id = (info.gameid[0])? info.gameid : "-";
+
+    string type = this->getType();
+    if (type == "ISO"){
+        string ext = common::getExtension(path);
+        for (int i=0; i<(int)ext.size(); i++) ext[i] = toupper(ext[i]);
+        detail_type = "PSP " + ext;
+    }
+    else if (type == "EBOOT"){
+        string sub = this->getSubtype() ? this->getSubtype() : "";
+        if (sub == "POPS") detail_type = "PS1 Game";
+        else if (sub == "PSN") detail_type = "PSN Game";
+        else if (sub == "UPDATER") detail_type = "Update";
+        else detail_type = "Homebrew";
+    }
+    else detail_type = type;
+
+    long size = common::fileSize(path);
+    detail_size = (size > 0)? common::beautifySize(size) : "-";
+    has_details = true;
+}
+
+void Entry::drawDetails(){
+    static TextScroll title_scroll;
+    const int x = 176, y = 58, w = 292, h = 140;
+
+    // dim the game art so the card stays readable
+    ya2d_draw_rect(0, 0, 480, 272, 0x70000000, 1);
+    common::getImage(IMAGE_DIALOG)->draw_scale(x, y, w, h);
+
+    title_scroll.w = w - 28;
+    common::printText(x+14, y+26, detail_title.c_str(), WHITE, SIZE_BIG, 0, &title_scroll, 0);
+    ya2d_draw_rect(x+12, y+36, w-24, 1, 0x40FFFFFF, 1);
+
+    string shown_path = path;
+    if (shown_path.size() > 34) shown_path = "..." + shown_path.substr(shown_path.size()-31);
+    const char* labels[4] = {"Type", "Game ID", "Size", "Path"};
+    string values[4] = {TR(detail_type), detail_id, detail_size, shown_path};
+    int yoffset = y+58;
+    for (int i=0; i<4; i++){
+        common::printText(x+14, yoffset, labels[i], 0xFFA0A0A0, SIZE_LITTLE, 0, NULL, 1);
+        common::printText(x+84, yoffset, values[i].c_str(), WHITE, SIZE_LITTLE, 0, NULL, 0);
+        yoffset += 19;
+    }
+
+    common::drawHints("X:Play;O:Back");
 }
 
 void Entry::setName(string name){
@@ -159,7 +213,8 @@ void Entry::drawBG(){
             this->pic1->draw_scale(0, 0, 480, 272);
     }
     else common::drawScreen();
-    if (this->pic0 != NULL) this->pic0->draw(160, 85);
+    if (has_details) drawDetails();
+    else if (this->pic0 != NULL) this->pic0->draw(160, 85);
 }
 
 void Entry::freeTempData(){
@@ -242,7 +297,7 @@ void Entry::animAppear(){
                 pic1->draw_scale(i, 0, 480, 272);
         }
         Image* pic0 = this->getPic0();
-        if (pic0 != NULL) pic0->draw(i+160, 85);
+        if (pic0 != NULL && !has_details) pic0->draw(i+160, 85);
         this->getIcon()->draw(i+20, 92);
         common::flipScreen();
     }
@@ -261,7 +316,7 @@ void Entry::animDisappear(){
                 pic1->draw_scale(i, 0, 480, 272);
         }
         Image* pic0 = this->getPic0();
-        if (pic0 != NULL) pic0->draw(i+160, 85);
+        if (pic0 != NULL && !has_details) pic0->draw(i+160, 85);
         this->getIcon()->draw(i+20, 92);
         common::flipScreen();
     }
@@ -283,6 +338,7 @@ bool Entry::pmfPrompt(){
     
     SystemMgr::pauseDraw();
     
+    if (!has_details) loadDetails();
     animAppear();
 
     loading_data = true;

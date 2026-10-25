@@ -51,9 +51,9 @@ struct EntryScale {
 };
 
 static struct EntryScale entry_scaling[3] = {
-    {SIZE_LITTLE, 52, 90},
-    {SIZE_MEDIUM, 72, 110},
-    {SIZE_BIG, 100, 140}
+    {SIZE_LITTLE, 52, 104},
+    {SIZE_MEDIUM, 72, 128},
+    {SIZE_BIG, 100, 160}
 };
 
 static bool stillLoading(){
@@ -96,7 +96,7 @@ void SystemMgr::changeMenuState(){
     }
     else{
         optionsTextAnim = -1;
-        optionsAnimState = -120;
+        optionsAnimState = -160;
         optionsDrawState = 1;
         system_menu = true;
     }
@@ -152,14 +152,18 @@ static void drawOptionsMenuCommon(){
 
     common::getImage(IMAGE_DIALOG)->draw_scale(0, optionsAnimState, 480, dialog_height); // Draw the background UI
 
-    int offset = (480 - (MAX_ENTRIES * 15)) / 2;
+    // page dots: a wide pill for the current entry, small dots for the rest
+    int dots_w = MAX_ENTRIES*8 + 6;
+    int dot_x = (480 - dots_w) / 2;
     for (int i = 0; i < MAX_ENTRIES; i++){
         if (i == pEntryIndex){
-            common::printText(offset + (i+1)*15, 15, "*", LITEGRAY, SIZE_BIG, true);
+            ya2d_draw_rect(dot_x, optionsAnimState + 7, 12, 4, WHITE, 1);
+            dot_x += 16;
         } else{
-            common::printText(offset + (i+1)*15, 15, "*", LITEGRAY, SIZE_LITTLE);
+            ya2d_draw_rect(dot_x, optionsAnimState + 7, 4, 4, 0x80FFFFFF, 1);
+            dot_x += 8;
         }
-    }    
+    }
     
     int num_items = getNumPageItems();
     int page_end = min(page_start + num_items, MAX_ENTRIES);
@@ -175,6 +179,12 @@ static void drawOptionsMenuCommon(){
         int icon_height = curr_entry->getIcon()->getHeight();
         int scaled_height = (int)((float)icon_height * ((float)scale_info.icon_scale / icon_height));
         int icon_center_y = dialog_height / 2 - scaled_height / 2;
+
+        if (i == pEntryIndex){
+            int pad = scale_info.icon_scale / 14;
+            common::drawSelection(x - pad, optionsAnimState + icon_center_y - pad,
+                scale_info.icon_scale + 2*pad, scale_info.icon_scale + 2*pad);
+        }
 
         // Possibly consolidate this branch into a single statement by enforcing strict dimension scaling for LARGE icons
         if(menu_size == 2) {
@@ -192,7 +202,11 @@ static void drawOptionsMenuCommon(){
             // Center text under icon
             int font_height = (int)((float)common::getFont()->texYSize * scale_info.font_size) / 4; // Divide by 4 because font heights can be aggressive. Sacrifices perfect centering
             int text_y = dialog_height - (dialog_height - (icon_center_y + scale_info.icon_scale)) / 2;
-            int text_x = (x + scaled_width / 2) - common::calcTextWidth(entname, scale_info.font_size, 1) / 2; 
+            int text_w = common::calcTextWidth(entname, scale_info.font_size, 1);
+            int text_x = (x + scaled_width / 2) - text_w / 2;
+            // keep the label on screen for the first and last icons
+            if (text_x + text_w > 472) text_x = 472 - text_w;
+            if (text_x < 8) text_x = 8;
             scroll.w = 480 - text_x;
             
             // Some fonts have huge glyph heights, so we clamp them
@@ -309,6 +323,7 @@ static void systemDrawer(){
             drawDateTime();
             // draw entry text
             entries[cur_entry]->drawInfo();
+            common::drawHints(entries[cur_entry]->getHints());
             // draw music icon is music player is open
             if (MusicPlayer::isPlaying()){
                 common::getIcon(FILE_MUSIC)->draw( common::getConf()->battery_percent ? 240:280, 3);
@@ -325,11 +340,12 @@ static void systemDrawer(){
         case 2: // draw menu
             optionsAnimState = 0;
             drawOptionsMenuCommon();
+            common::drawHints("LR:Choose;X:Open;O:Close");
             break;
         case 3: // draw closing animation
             drawOptionsMenuCommon();
             optionsAnimState -= 20;
-            if (optionsAnimState < -120)
+            if (optionsAnimState < -160)
                 optionsDrawState = 0;
             break;
     }

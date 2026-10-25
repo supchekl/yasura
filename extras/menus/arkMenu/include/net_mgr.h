@@ -18,6 +18,7 @@ class NetworkManager : public SystemEntry{
     void setName(std::string name);
     Image* getIcon();
     bool isStillLoading(){ return false; }
+    std::string getHints(){ return "X:Start FTP;O:Stop FTP;S:Updates;T:Menu"; }
 };
 
 #endif

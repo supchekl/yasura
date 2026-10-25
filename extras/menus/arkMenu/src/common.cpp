@@ -49,6 +49,14 @@ static Anim* animations[ANIM_COUNT];
 /* Optional theme images for the selected entry (PLATE.PNG behind it, RIM.PNG over it) */
 static Image* plate = NULL;
 static Image* rim = NULL;
+/* Optional button glyphs for the hint bar, matched by key in drawHints() */
+#define HINT_BUTTONS 11
+static const char* hint_keys[HINT_BUTTONS] = {"X", "O", "T", "S", "L", "R", "ST", "SE", "UD", "LR", "DP"};
+static const char* hint_files[HINT_BUTTONS] = {
+    "BTN_X.PNG", "BTN_O.PNG", "BTN_T.PNG", "BTN_S.PNG", "BTN_L.PNG", "BTN_R.PNG",
+    "BTN_ST.PNG", "BTN_SE.PNG", "BTN_UD.PNG", "BTN_LR.PNG", "BTN_DP.PNG"
+};
+static Image* hint_btns[HINT_BUTTONS] = {NULL};
 
 static bool flipControl = false;
 
@@ -529,6 +537,16 @@ void common::loadTheme(){
         else { delete rim; rim = NULL; }
     }
 
+    for (int i=0; i<HINT_BUTTONS; i++){
+        SceOff off = findPkgOffset(hint_files[i], NULL, NULL, &dummyMissingHandler);
+        if (!off) continue;
+        hint_btns[i] = new Image(theme_path, YA2D_PLACE_VRAM, off);
+        if (!hint_btns[i]->getTexture()){
+            delete hint_btns[i];
+            hint_btns[i] = NULL;
+        }
+    }
+
     checkbox[1] = new Image(theme_path, YA2D_PLACE_VRAM, common::findPkgOffset("CHECK.PNG"));
     checkbox[0] = new Image(theme_path, YA2D_PLACE_VRAM, common::findPkgOffset("UNCHECK.PNG"));
     
@@ -692,6 +710,73 @@ Image* common::getPlate(){
 
 Image* common::getRim(){
     return rim;
+}
+
+void common::drawSelection(int x, int y, int w, int h){
+    if (plate) plate->draw_scale(x, y, w, h);
+    else ya2d_draw_rect(x, y, w, h, 0x40FFFFFF, 1);
+}
+
+void common::drawHints(string spec){
+    if (spec.empty()) return;
+
+    const int max_items = 6;
+    Image* btn[max_items];
+    string key[max_items];
+    string label[max_items];
+    int tw[max_items];
+    int n = 0;
+
+    size_t pos = 0;
+    while (pos < spec.size() && n < max_items){
+        size_t end = spec.find(';', pos);
+        if (end == string::npos) end = spec.size();
+        string item = spec.substr(pos, end-pos);
+        size_t colon = item.find(':');
+        if (colon != string::npos){
+            key[n] = item.substr(0, colon);
+            label[n] = item.substr(colon+1);
+            btn[n] = NULL;
+            for (int i=0; i<HINT_BUTTONS; i++){
+                if (key[n] == hint_keys[i]){
+                    btn[n] = hint_btns[i];
+                    break;
+                }
+            }
+            tw[n] = calcTextWidth(label[n].c_str(), SIZE_LITTLE, 1);
+            n++;
+        }
+        pos = end+1;
+    }
+    if (n == 0) return;
+
+    const int h = 20, pad = 10, gap = 14, icon_gap = 4;
+    int w = 2*pad - gap;
+    for (int i=0; i<n; i++){
+        int bw = (btn[i])? btn[i]->getWidth() : calcTextWidth(key[i].c_str(), SIZE_LITTLE, 0);
+        w += bw + icon_gap + tw[i] + gap;
+    }
+    if (w > 476) w = 476;
+    int x = (480-w)/2;
+    int y = 272-h-3;
+
+    getImage(IMAGE_DIALOG)->draw_scale(x, y, w, h);
+
+    int cx = x+pad;
+    for (int i=0; i<n; i++){
+        int bw;
+        if (btn[i]){
+            bw = btn[i]->getWidth();
+            btn[i]->draw(cx, y + (h - btn[i]->getHeight())/2);
+        }
+        else {
+            bw = calcTextWidth(key[i].c_str(), SIZE_LITTLE, 0);
+            printText(cx, y+14, key[i].c_str(), WHITE, SIZE_LITTLE, 0, NULL, 0);
+        }
+        cx += bw + icon_gap;
+        printText(cx, y+14, label[i].c_str(), WHITE, SIZE_LITTLE, 0, NULL, 1);
+        cx += tw[i] + gap;
+    }
 }
 
 bool common::isSharedImage(Image* img){

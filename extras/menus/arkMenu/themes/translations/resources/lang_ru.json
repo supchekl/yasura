@@ -205,6 +205,30 @@
     "xmbmsgtop_sysconf_plugins": "Менеджер плагинов",
     "xmbmsgtop_custom_launcher": "Главное меню ARK-4",
     "xmbmsgtop_custom_app": "Пользовательское приложение",
-    "xmbmsgtop_150_reboot": "Перезагрузиться в 1.50 ARK"
-    
+    "xmbmsgtop_150_reboot": "Перезагрузиться в 1.50 ARK",
+
+    "Choose": "Выбор",
+    "OK": "ОК",
+    "Back": "Назад",
+    "Open": "Открыть",
+    "Section": "Раздел",
+    "Refresh": "Обновить",
+    "Menu": "Меню",
+    "Up": "Вверх",
+    "Mark": "Отметить",
+    "Actions": "Действия",
+    "Change": "Изменить",
+    "Save": "Сохранить",
+    "Reset": "Сброс",
+    "Close": "Закрыть",
+    "Play": "Играть",
+    "Start FTP": "Запуск FTP",
+    "Stop FTP": "Стоп FTP",
+    "Updates": "Обновления",
+    "Type": "Тип",
+    "PS1 Game": "Игра PS1",
+    "PSN Game": "Игра PSN",
+    "Update": "Обновление",
+    "Homebrew": "Homebrew",
+    "Info": "Об игре"
 }
