@@ -195,14 +195,26 @@ void Menu::draw(bool selected){
         if (height != 80)
             curentry_yoffset = (272-height)/2;
         
+        Image* plate = common::getPlate();
+        Image* rim = common::getRim();
         if (animating){
-            e_icon->draw_scale(xoffset+2, curentry_yoffset+5+anim*40, 0.75f, 0.75f);
+            int w = e_icon->getWidth()*3/4, h = e_icon->getHeight()*3/4;
+            int x = xoffset+2, y = curentry_yoffset+5+anim*40;
+            if (plate) plate->draw_scale(x-4, y-4, w+8, h+8);
+            e_icon->draw_scale(x, y, 0.75f, 0.75f);
+            if (rim) rim->draw_scale(x, y, w, h);
         }
         else {
-            int cw = common::calcTextWidth("...", 1.f, 0);
-            float factor = float(e_icon->getWidth())/float(cw);
-            common::printText(xoffset, curentry_yoffset+(height/2), "...", WHITE_COLOR, factor, 1, NULL, 0);
-            e_icon->draw(xoffset+5, curentry_yoffset+5+anim*40);
+            int w = e_icon->getWidth(), h = e_icon->getHeight();
+            int x = xoffset+5, y = curentry_yoffset+5+anim*40;
+            if (plate) plate->draw_scale(x-4, y-4, w+8, h+8);
+            else {
+                int cw = common::calcTextWidth("...", 1.f, 0);
+                float factor = float(e_icon->getWidth())/float(cw);
+                common::printText(xoffset, curentry_yoffset+(height/2), "...", WHITE_COLOR, factor, 1, NULL, 0);
+            }
+            e_icon->draw(x, y);
+            if (rim) rim->draw_scale(x, y, w, h);
         }   
     }
 }

@@ -1,24 +1,30 @@
 #include "ya2d++.h"
 #include <string>
 #include <common.h>
+#include <pspgu.h>
+#include <pspgum.h>
 
 Image::Image(){
     this->is_system_image = false;
+    this->slice = 0;
 }
 
 Image::Image(ya2d_texture* tex){
     if (tex == NULL){
         this->texture = common::getImage(IMAGE_NOICON)->texture;
         this->is_system_image = true;
+        this->slice = 0;
     }
     else {
         this->texture = tex;
         this->is_system_image = false;
+    this->slice = 0;
     }
 }
 
 Image::Image(string filename, int place){
     this->is_system_image = false;
+    this->slice = 0;
     string ext = common::getExtension(filename);
     if (ext == "png"){
         this->texture = ya2d_load_PNG_file_offset(filename.c_str(), place, 0);
@@ -37,6 +43,7 @@ Image::Image(string filename, int place){
 
 Image::Image(void* buffer, int place){
     this->is_system_image = false;
+    this->slice = 0;
     u32 magic = *(u32*)buffer;
     if (magic == PNG_MAGIC)
         this->texture = ya2d_load_PNG_buffer(buffer, place);
@@ -46,12 +53,14 @@ Image::Image(void* buffer, int place){
 
 Image::Image(void* buffer, unsigned long buffer_size, int place){
     this->is_system_image = false;
+    this->slice = 0;
     if ( (*(u32*)buffer & 0x0000FFFF) == JPG_MAGIC)
         this->texture = ya2d_load_JPEG_buffer(buffer, buffer_size, place);
 }
 
 Image::Image(string filename, int place, SceOff offset){
     this->is_system_image = false;
+    this->slice = 0;
     this->texture = ya2d_load_PNG_file_offset(filename.c_str(), place, offset);
 }
 
@@ -102,9 +111,42 @@ void Image::draw_scale(int x, int y, float scale_x, float scale_y){
 }
 
 void Image::draw_scale(int x, int y, int newWidth, int newHeight){
+    if (slice > 0){
+        draw_slice(x, y, newWidth, newHeight);
+        return;
+    }
     float scale_x = (float)newWidth/(float)getWidth();
     float scale_y = (float)newHeight/(float)getHeight();
     ya2d_draw_texture_scale(this->texture, x, y, scale_x, scale_y);
+}
+
+// Draw the texture stretched to newWidth x newHeight keeping its corners intact,
+// so rounded panels don't get smeared when scaled to bars or popups.
+void Image::draw_slice(int x, int y, int newWidth, int newHeight){
+    if (!texture) return;
+    int tw = texture->width, th = texture->height;
+    int sb = slice;
+    if (sb*2 > tw) sb = tw/2;
+    if (sb*2 > th) sb = th/2;
+    int db = sb;
+    if (db*2 > newWidth) db = newWidth/2;
+    if (db*2 > newHeight) db = newHeight/2;
+
+    short su[4] = {0, (short)sb, (short)(tw-sb), (short)tw};
+    short sv[4] = {0, (short)sb, (short)(th-sb), (short)th};
+    short dx[4] = {(short)x, (short)(x+db), (short)(x+newWidth-db), (short)(x+newWidth)};
+    short dy[4] = {(short)y, (short)(y+db), (short)(y+newHeight-db), (short)(y+newHeight)};
+
+    ya2d_set_texture(texture);
+    struct ya2d_vertex_2s3s *v = (struct ya2d_vertex_2s3s*)sceGuGetMemory(18 * sizeof(struct ya2d_vertex_2s3s));
+    int n = 0;
+    for (int j=0; j<3; j++){
+        for (int i=0; i<3; i++){
+            v[n].u = su[i];   v[n].v = sv[j];   v[n].x = dx[i];   v[n].y = dy[j];   v[n].z = 0; n++;
+            v[n].u = su[i+1]; v[n].v = sv[j+1]; v[n].x = dx[i+1]; v[n].y = dy[j+1]; v[n].z = 0; n++;
+        }
+    }
+    sceGumDrawArray(GU_SPRITES, GU_TEXTURE_16BIT|GU_VERTEX_16BIT|GU_TRANSFORM_2D, 18, 0, v);
 }
 
 void Image::draw_rotate(int x, int y, float angle){

@@ -25,7 +25,7 @@ enum colors {
     GREEN =    0xFF00FF00,
     BLUE =    0xFFFF0000,
     WHITE =    0xFFFFFFFF,
-    LITEGRAY = 0xFFBFBFBF,
+    LITEGRAY = 0xFFEFEFEF,
     GRAY =  0xFF7F7F7F,
     DARKGRAY = 0xFF3F3F3F,        
     BLACK = 0xFF000000,
@@ -109,6 +109,8 @@ namespace common{
     extern string beautifySize(u64 size);
     extern Image* getImage(int which);
     extern Image* getIcon(int which);
+    extern Image* getPlate(); // optional selection backdrop, may be NULL
+    extern Image* getRim(); // optional selection outline, may be NULL
     extern Image* getCheckbox(int which);
     extern bool isSharedImage(Image* img);
     extern intraFont* getFont();

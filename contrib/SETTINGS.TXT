@@ -3,7 +3,7 @@
 always, usbcharge, on
 always, overclock, on
 always, wpa2, off
-always, launcher, off
+always, launcher, on
 always, highmem, off
 always, mscache, on
 always, infernocache, on

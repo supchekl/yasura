@@ -46,6 +46,9 @@ static int currentLang = 0;
 static int currentApp = 0; // Games
 /* Instance of the animations that are drawn on the menu */
 static Anim* animations[ANIM_COUNT];
+/* Optional theme images for the selected entry (PLATE.PNG behind it, RIM.PNG over it) */
+static Image* plate = NULL;
+static Image* rim = NULL;
 
 static bool flipControl = false;
 
@@ -269,7 +272,8 @@ void common::resetConf(){
     config.font = 1;
     config.sort_entries = 1;
     config.show_recovery = 1;
-    config.text_glow = 3;
+    config.text_glow = 0;
+    config.animation = 10; // no background animation, keeps the glass theme clean
     config.screensaver = 2;
     config.redirect_ms0 = 1;
     config.menusize = 2;
@@ -510,6 +514,21 @@ void common::loadTheme(){
     icons[FILE_MUSIC] = new Image(theme_path, YA2D_PLACE_VRAM, common::findPkgOffset("MUSIC.PNG"));
     icons[FILE_PICTURE] = new Image(theme_path, YA2D_PLACE_VRAM, common::findPkgOffset("PICTURE.PNG"));
 
+    images[IMAGE_DIALOG]->slice = 24;
+
+    SceOff extra = findPkgOffset("PLATE.PNG", NULL, NULL, &dummyMissingHandler);
+    if (extra){
+        plate = new Image(theme_path, RESOURCES_LOAD_PLACE, extra);
+        if (plate->getTexture()) plate->slice = 24;
+        else { delete plate; plate = NULL; }
+    }
+    extra = findPkgOffset("RIM.PNG", NULL, NULL, &dummyMissingHandler);
+    if (extra){
+        rim = new Image(theme_path, RESOURCES_LOAD_PLACE, extra);
+        if (rim->getTexture()) rim->slice = 16;
+        else { delete rim; rim = NULL; }
+    }
+
     checkbox[1] = new Image(theme_path, YA2D_PLACE_VRAM, common::findPkgOffset("CHECK.PNG"));
     checkbox[0] = new Image(theme_path, YA2D_PLACE_VRAM, common::findPkgOffset("UNCHECK.PNG"));
     
@@ -665,6 +684,14 @@ Image* common::getIcon(int which){
 
 Image* common::getCheckbox(int which){
     return checkbox[which&1];
+}
+
+Image* common::getPlate(){
+    return plate;
+}
+
+Image* common::getRim(){
+    return rim;
 }
 
 bool common::isSharedImage(Image* img){

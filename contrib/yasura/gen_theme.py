@@ -206,24 +206,44 @@ def checkbox(on, size=12):
     return down(img, size, size)
 
 
-def wallpaper(w=480, h=272, blur=38):
+def wallpaper(w=480, h=272):
+    """Dark iOS 26 style wallpaper: deep navy with soft glows and two glass ribbons.
+
+    The PSP LCD is bright and saturated, so everything stays low-key on purpose.
+    """
     W, H = w * S // 2, h * S // 2
-    img = vgrad(W, H, (12, 18, 52, 255), (34, 10, 60, 255))
-    blobs = [
-        (0.15, 0.20, 0.42, (0, 122, 255)),
-        (0.80, 0.15, 0.38, (175, 82, 222)),
-        (0.62, 0.85, 0.45, (255, 45, 140)),
-        (0.05, 0.95, 0.35, (0, 199, 190)),
-        (0.95, 0.65, 0.28, (255, 159, 10)),
+    img = vgrad(W, H, (8, 10, 24, 255), (4, 5, 12, 255))
+    glows = [
+        (0.22, 0.30, 0.55, (58, 72, 210), 120),
+        (0.85, 0.20, 0.45, (120, 60, 200), 95),
+        (0.70, 1.05, 0.55, (20, 120, 170), 85),
     ]
-    for bx, by, br, col in blobs:
+    for gx, gy, gr, col, a in glows:
         layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        r = br * W
-        ImageDraw.Draw(layer).ellipse(
-            (bx * W - r, by * H - r * 0.8, bx * W + r, by * H + r * 0.8), fill=col + (210,)
-        )
-        img.alpha_composite(layer)
-    img = img.filter(ImageFilter.GaussianBlur(blur * S / 2))
+        r = gr * W
+        ImageDraw.Draw(layer).ellipse((gx * W - r, gy * H - r * 0.7, gx * W + r, gy * H + r * 0.7), fill=col + (a,))
+        img.alpha_composite(layer.filter(ImageFilter.GaussianBlur(W * 0.12)))
+
+    # Glass ribbons: a translucent band with a bright leading edge, like the iOS 26 wallpapers.
+    for amp, off, phase, thick, a in ((0.16, 0.58, 0.0, 0.20, 34), (0.12, 0.74, 1.7, 0.13, 26)):
+        band = Image.new("L", (W, H), 0)
+        edge = Image.new("L", (W, H), 0)
+        top = []
+        bot = []
+        for i in range(W + 1):
+            t = i / W
+            y = (off + amp * math.sin(t * math.pi * 1.6 + phase)) * H
+            top.append((i, y))
+            bot.append((i, y + thick * H * (0.7 + 0.3 * math.cos(t * 3 + phase))))
+        ImageDraw.Draw(band).polygon(top + bot[::-1], fill=a)
+        ImageDraw.Draw(edge).line(top, fill=150, width=max(1, S // 2))
+        band = band.filter(ImageFilter.GaussianBlur(S * 1.5))
+        edge = edge.filter(ImageFilter.GaussianBlur(S * 0.8))
+        fade = Image.linear_gradient("L").rotate(90).resize((W, H))  # dim toward the left edge
+        fade = fade.point(lambda v: 90 + v * 165 // 255)
+        white = Image.new("RGBA", (W, H), (200, 215, 255, 0))
+        white.putalpha(ImageChops.multiply(ImageChops.add(band, edge), fade))
+        img.alpha_composite(white)
     return down(img, w, h)
 
 
@@ -285,11 +305,46 @@ def bubble(size=22):
     return down(img, size, size)
 
 
-def dialog_box(size=256):
-    slab, pad = glass(size - 12, size - 12, 34, dark=True)
-    big = Image.new("RGBA", (size * S, size * S), (0, 0, 0, 0))
-    big.alpha_composite(slab, ((size * S - slab.width) // 2, (size * S - slab.height) // 2))
-    return down(big, size, size)
+def panel(size, r, top, bottom, rim_a, sheen_a):
+    """Square nine-slice source: rounded body, top sheen, thin lit rim."""
+    B = size * S
+    m = squircle_mask(B, B, r * S)
+    img = with_alpha(vgrad(B, B, top, bottom), m)
+    sheen = vgrad(B, int(B * 0.45), (255, 255, 255, sheen_a), (255, 255, 255, 0))
+    sf = Image.new("RGBA", (B, B), (0, 0, 0, 0))
+    sf.paste(sheen, (0, 0))
+    img.alpha_composite(with_alpha(sf, m))
+    rw = max(S, int(0.9 * S))
+    inner = Image.new("L", (B, B), 0)
+    inner.paste(squircle_mask(B - 2 * rw, B - 2 * rw, max(1, (r * S) - rw)), (rw, rw))
+    ring = ImageChops.subtract(m, inner)
+    ring = ImageChops.multiply(ring, vgrad(B, B, (0, 0, 0, rim_a), (0, 0, 0, rim_a // 3)).getchannel("A"))
+    rl = Image.new("RGBA", (B, B), (255, 255, 255, 0))
+    rl.putalpha(ring)
+    img.alpha_composite(rl)
+    return down(img, size, size)
+
+
+def dialog_box():
+    # Used for the top bar, the triangle menu and every popup (drawn nine-sliced, border 24).
+    return panel(64, 20, (34, 38, 58, 175), (16, 18, 30, 200), 170, 36)
+
+
+def plate():
+    # Glass backdrop behind the selected game (nine-sliced, border 24).
+    return panel(64, 18, (255, 255, 255, 52), (255, 255, 255, 26), 235, 60)
+
+
+def rim(size=48):
+    # Overlay on the selected game icon: a soft top reflection (nine-sliced, border 16).
+    B = size * S
+    img = Image.new("RGBA", (B, B), (0, 0, 0, 0))
+    m = squircle_mask(B, B, 5 * S)
+    sheen = vgrad(B, 16 * S, (255, 255, 255, 46), (255, 255, 255, 0))
+    sf = Image.new("RGBA", (B, B), (0, 0, 0, 0))
+    sf.paste(sheen, (0, 0))
+    img.alpha_composite(with_alpha(sf, m))
+    return down(img, size, size)
 
 
 def main():
@@ -310,6 +365,8 @@ def main():
     spinner().save(os.path.join(out, "WAIT.PNG"))
     bubble().save(os.path.join(out, "SPRITE.PNG"))
     dialog_box().save(os.path.join(out, "BOX.PNG"))
+    plate().save(os.path.join(out, "PLATE.PNG"))
+    rim().save(os.path.join(out, "RIM.PNG"))
     for snd in ("BOOT.MP3", "SOUND.MP3"):
         shutil.copy(os.path.join(sounds, snd), os.path.join(out, snd))
     # Full-size XMB wallpaper, set on the PSP via Settings > Theme Settings > Wallpaper.

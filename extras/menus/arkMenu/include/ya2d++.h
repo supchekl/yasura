@@ -17,6 +17,7 @@ class Image{
     
     public:
         bool is_system_image;
+        int slice; // nine-slice border in texels, 0 = plain stretch
     
         Image();
         Image(ya2d_texture* tex);
@@ -37,6 +38,7 @@ class Image{
         void draw_hotspot(int x, int y, int center_x, int center_y);
         void draw_scale(int x, int y, float scale_x, float scale_y);
         void draw_scale(int x, int y, int newWidth, int newHeight);
+        void draw_slice(int x, int y, int newWidth, int newHeight);
         void draw_rotate(int x, int y, float angle);
         void draw_rotate_hotspot(int x, int y, float angle, int center_x, int center_y);
         
