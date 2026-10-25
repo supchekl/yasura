@@ -43,6 +43,10 @@ class GameManager : public SystemEntry{
 
         /* Home screen dock: -1 while the icon grid has focus, else the dock slot */
         int dock_focus;
+        /* Control center (SELECT): -1 closed, else the focused button */
+        int cc_focus;
+        void drawControlCenter();
+        void controlCenter(Controller* pad);
         void drawDock();
         void drawTabs();
         void gridMove(int dx, int dy);
@@ -133,8 +137,9 @@ class GameManager : public SystemEntry{
         string getFooter();
         string getHints(){
             if (optionsmenu) return "UD:Choose;X:OK;O:Back";
+            if (cc_focus >= 0) return "LR:Choose;X:OK;O:Close";
             if (dock_focus >= 0) return "LR:Choose;X:Open;UD:Games list;T:Menu";
-            if (selectedCategory >= 0) return "DP:Choose;X:Open;S:Options;L+R:Section;T:Menu";
+            if (selectedCategory >= 0) return "DP:Choose;X:Open;S:Options;L+R:Section;SE:Panel;T:Menu";
             return "T:Menu";
         }
         

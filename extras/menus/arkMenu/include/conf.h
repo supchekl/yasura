@@ -35,6 +35,8 @@ typedef struct {
     unsigned char advanced_vsh; // Choose to autoload into advanced vsh menu
     unsigned char avm_hidden[32]; // Hiden items in advanced vsh menu
     unsigned char app_autoboot; //Don't check if user is pressing LT when autobooting last game
+    unsigned char wallpaper; // Yasura: built-in wallpaper index, or the custom photo
+    unsigned char standby; // Yasura: put the PSP to sleep after this many idle minutes (index, 0 = never)
 } t_conf;
 
 #endif

@@ -55,6 +55,10 @@ static Image* rim = NULL;
 static Image* dock = NULL;
 static Image* gloss = NULL;
 static Image* cfw_icon = NULL; // optional CFW.PNG, so the two settings apps look different
+static const char* extra_files[MAX_THEME_EXTRAS] = {"PHOTOS.PNG", "VIDEO.PNG", "CLOCK.PNG", "CCICONS.PNG"};
+static Image* extras[MAX_THEME_EXTRAS] = {NULL};
+static int wall_loaded = 0; // wallpaper index in images[IMAGE_BG]
+static bool wall_photo_missing = false; // "My photo" picked but no photo saved yet
 /* Optional button glyphs for the hint bar, matched by key in drawHints() */
 #define HINT_BUTTONS 11
 static const char* hint_keys[HINT_BUTTONS] = {"X", "O", "T", "S", "L", "R", "ST", "SE", "UD", "LR", "DP"};
@@ -288,7 +292,8 @@ void common::resetConf(){
     config.show_recovery = 1;
     config.text_glow = 0;
     config.animation = 10; // no background animation, keeps the glass theme clean
-    config.screensaver = 2;
+    config.screensaver = 4; // lock screen after 30 s, like iOS auto-lock
+    config.standby = 4; // sleep after 10 idle minutes
     config.redirect_ms0 = 1;
     config.menusize = 2;
     config.browser_icon0 = 1;
@@ -496,10 +501,65 @@ void common::stopLoadingThread(){
     load_thread_id = -1;
 }
 
-void common::loadTheme(){
+static Image* loadRawWallpaper(string path);
+
+/* Wallpaper: 0 = theme DEFBG.PNG, 1-4 = theme WALL1-4.PNG, 5 = the user's photo (WALL.RAW, or the old BG.PNG) */
+static Image* loadWallpaper(int which){
     SceIoStat stat;
-    string path = string(ark_config.arkpath) + "BG.PNG";
-    images[IMAGE_BG] = (sceIoGetstat(path.c_str(), &stat) >= 0) ? new Image(path.c_str()) : new Image(theme_path, RESOURCES_LOAD_PLACE, findPkgOffset("DEFBG.PNG"));
+    Image* img = NULL;
+    if (which == WALLPAPER_PHOTO){
+        string raw = string(ark_config.arkpath) + "WALL.RAW";
+        string png = string(ark_config.arkpath) + "BG.PNG";
+        img = loadRawWallpaper(raw);
+        if (!img && sceIoGetstat(png.c_str(), &stat) >= 0) img = new Image(png.c_str());
+        if (img && img->is_system_image){ delete img; img = NULL; } // failed to load
+        wall_photo_missing = (img == NULL);
+    }
+    else if (which > 0 && which < MAX_WALLPAPERS){
+        char name[16];
+        snprintf(name, sizeof(name), "WALL%d.PNG", which);
+        SceOff off = common::findPkgOffset(name, NULL, NULL, &dummyMissingHandler);
+        if (off) img = new Image(theme_path, RESOURCES_LOAD_PLACE, off);
+        if (img && !img->getTexture()){ delete img; img = NULL; }
+    }
+    if (img == NULL)
+        img = new Image(theme_path, RESOURCES_LOAD_PLACE, common::findPkgOffset("DEFBG.PNG"));
+    return img;
+}
+
+/* Loads files, so only call it from the main/control thread (the draw thread has no working dir) */
+static void swapWallpaper(int which, bool lock){
+    Image* img = loadWallpaper(which);
+    img->swizzle();
+    img->is_system_image = true;
+    if (lock) SystemMgr::pauseDraw();
+    Image* old = images[IMAGE_BG];
+    images[IMAGE_BG] = img;
+    wall_loaded = which;
+    if (lock) SystemMgr::resumeDraw();
+    if (old){
+        old->is_system_image = false;
+        delete old;
+    }
+}
+
+void common::previewWallpaper(int which){
+    int want = (which >= 0 && which < MAX_WALLPAPERS)? which : config.wallpaper;
+    if (want >= MAX_WALLPAPERS) want = 0;
+    if (want != wall_loaded) swapWallpaper(want, true);
+}
+
+bool common::photoWallpaperMissing(){
+    return wall_photo_missing;
+}
+
+void common::reloadWallpaper(){
+    wall_loaded = -1;
+}
+
+void common::loadTheme(){
+    images[IMAGE_BG] = loadWallpaper(config.wallpaper);
+    wall_loaded = config.wallpaper;
     images[IMAGE_WAITICON] = new Image(theme_path, RESOURCES_LOAD_PLACE, findPkgOffset("WAIT.PNG"));
 
     images[0]->swizzle();
@@ -553,6 +613,12 @@ void common::loadTheme(){
     if (extra){
         cfw_icon = new Image(theme_path, RESOURCES_LOAD_PLACE, extra);
         if (!cfw_icon->getTexture()){ delete cfw_icon; cfw_icon = NULL; }
+    }
+    for (int i=0; i<MAX_THEME_EXTRAS; i++){
+        SceOff off = findPkgOffset(extra_files[i], NULL, NULL, &dummyMissingHandler);
+        if (!off) continue;
+        extras[i] = new Image(theme_path, RESOURCES_LOAD_PLACE, off);
+        if (!extras[i]->getTexture()){ delete extras[i]; extras[i] = NULL; }
     }
     extra = findPkgOffset("GLOSS.PNG", NULL, NULL, &dummyMissingHandler);
     if (extra){
@@ -609,6 +675,7 @@ void common::loadData(int ac, char** av, int recovery){
     animations[10] = new NoAnim();
     
     loadConfig();
+    if (config.wallpaper >= MAX_WALLPAPERS) config.wallpaper = 0;
 
     // check to run last game
     const char* last_game = common::getConf()->last_game;
@@ -739,6 +806,10 @@ Image* common::getDock(){
     return dock;
 }
 
+Image* common::getThemeImage(int which){
+    return (which >= 0 && which < MAX_THEME_EXTRAS)? extras[which] : NULL;
+}
+
 Image* common::getCfwIcon(){
     return (cfw_icon)? cfw_icon : images[IMAGE_SETTINGS];
 }
@@ -853,6 +924,94 @@ Image* common::makeAppIcon(Image* src){
     }
     ya2d_flush_texture(tex);
     return new Image(tex);
+}
+
+Image* common::fitImage(Image* src, int w, int h, bool cover){
+    if (!src || !src->getTexture() || src->getTexture()->pixel_format != GU_PSM_8888) return NULL;
+    ya2d_texture* st = src->getTexture();
+    float sx = (float)st->width / w, sy = (float)st->height / h;
+    // cover fills the box and crops, contain fits inside it
+    float s = (cover)? ((sx < sy)? sx : sy) : ((sx > sy)? sx : sy);
+    int ow = (cover)? w : (int)(st->width / s), oh = (cover)? h : (int)(st->height / s);
+    if (ow < 1) ow = 1; if (oh < 1) oh = 1;
+    if (ow > w) ow = w; if (oh > h) oh = h;
+    ya2d_texture* tex = ya2d_create_texture(ow, oh, GU_PSM_8888, YA2D_PLACE_RAM);
+    if (!tex) return NULL;
+    float x0 = (st->width - ow*s)/2.f, y0 = (st->height - oh*s)/2.f;
+    u32* out = (u32*)tex->data;
+    int stride = tex->stride/4;
+    // average four samples per pixel when shrinking a lot, so photos don't sparkle
+    float q = (s > 2.f)? s/4.f : 0.f;
+    for (int y=0; y<oh; y++){
+        for (int x=0; x<ow; x++){
+            float fx = x0 + (x+0.5f)*s - 0.5f, fy = y0 + (y+0.5f)*s - 0.5f;
+            u32 c;
+            if (q > 0){
+                u32 a = sample(st, fx-q, fy-q), b = sample(st, fx+q, fy-q);
+                u32 d = sample(st, fx-q, fy+q), e = sample(st, fx+q, fy+q);
+                c = mix(mix(a, b, 128), mix(d, e, 128), 128);
+            }
+            else c = sample(st, fx, fy);
+            out[y*stride+x] = c;
+        }
+    }
+    ya2d_flush_texture(tex);
+    return new Image(tex);
+}
+
+/* The photo wallpaper is stored raw (480x272 RGBA), no encoder or decoder needed */
+#define WALL_W 480
+#define WALL_H 272
+
+bool common::setPhotoWallpaper(Image* src){
+    Image* fit = fitImage(src, WALL_W, WALL_H, true);
+    if (!fit) return false;
+    ya2d_texture* t = fit->getTexture();
+    string path = string(ark_config.arkpath) + "WALL.RAW";
+    int fd = sceIoOpen(path.c_str(), PSP_O_WRONLY|PSP_O_CREAT|PSP_O_TRUNC, 0777);
+    bool ok = false;
+    if (fd >= 0){
+        ok = true;
+        for (int y=0; y<WALL_H && ok; y++){
+            u32* row = (u32*)((u8*)t->data + y*t->stride);
+            for (int x=0; x<WALL_W; x++) row[x] |= 0xFF000000;
+            ok = (sceIoWrite(fd, row, WALL_W*4) == WALL_W*4);
+        }
+        sceIoClose(fd);
+    }
+    delete fit;
+    if (ok){
+        config.wallpaper = WALLPAPER_PHOTO;
+        saveConf();
+        swapWallpaper(WALLPAPER_PHOTO, true);
+    }
+    return ok;
+}
+
+static Image* loadRawWallpaper(string path){
+    SceUID fd = sceIoOpen(path.c_str(), PSP_O_RDONLY, 0777);
+    if (fd < 0) return NULL;
+    ya2d_texture* t = ya2d_create_texture(WALL_W, WALL_H, GU_PSM_8888, YA2D_PLACE_RAM);
+    bool ok = (t != NULL);
+    for (int y=0; y<WALL_H && ok; y++)
+        ok = (sceIoRead(fd, (u8*)t->data + y*t->stride, WALL_W*4) == WALL_W*4);
+    sceIoClose(fd);
+    if (!ok){
+        if (t) ya2d_free_texture(t);
+        return NULL;
+    }
+    ya2d_flush_texture(t);
+    return new Image(t);
+}
+
+void common::drawSub(Image* img, int sx, int sy, int sw, int sh, int dx, int dy, int dw, int dh){
+    if (!img || !img->getTexture()) return;
+    ya2d_set_texture(img->getTexture());
+    sceGuTexFilter(GU_LINEAR, GU_LINEAR);
+    ya2d_vertex_2s3s* v = (ya2d_vertex_2s3s*)sceGuGetMemory(2*sizeof(ya2d_vertex_2s3s));
+    v[0].u = sx; v[0].v = sy; v[0].x = dx; v[0].y = dy; v[0].z = 0;
+    v[1].u = sx+sw; v[1].v = sy+sh; v[1].x = dx+dw; v[1].y = dy+dh; v[1].z = 0;
+    sceGumDrawArray(GU_SPRITES, GU_TEXTURE_16BIT|GU_VERTEX_16BIT|GU_TRANSFORM_2D, 2, 0, v);
 }
 
 void common::drawAppIcon(Image* img, int x, int y, int size){

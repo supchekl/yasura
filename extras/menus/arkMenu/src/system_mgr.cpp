@@ -9,6 +9,8 @@
 #include "common.h"
 #include "controller.h"
 #include "music_player.h"
+#include "usb.h"
+#include "lang.h"
 
 string ark_version = "";
 
@@ -345,6 +347,57 @@ static void systemDrawer(){
 
 }
 
+/* Screensaver as an iOS lock screen: big clock and date over the wallpaper */
+static void drawLockScreen(){
+    pspTime now;
+    sceRtcGetCurrentClockLocalTime(&now);
+    ya2d_draw_rect(0, 0, 480, 272, 0x38000000, 1);
+
+    char hm[6];
+    snprintf(hm, sizeof(hm), "%02d:%02d", now.hour, now.minutes);
+    Image* digits = common::getThemeImage(THEME_CLOCK);
+    int y = 62;
+    if (digits){
+        // CLOCK.PNG: eleven cells, 0-9 then ':'
+        int cw = digits->getWidth() / 11, ch = digits->getHeight();
+        int w = 0;
+        for (int i=0; hm[i]; i++) w += (hm[i] == ':')? cw/2 : cw;
+        int x = (480 - w)/2;
+        for (int i=0; hm[i]; i++){
+            int cell = (hm[i] == ':')? 10 : hm[i]-'0';
+            int adv = (hm[i] == ':')? cw/2 : cw;
+            common::drawSub(digits, cell*cw + (cw-adv)/2, 0, adv, ch, x, y, adv, ch);
+            x += adv;
+        }
+        y += ch;
+    }
+    else {
+        common::printText(240 - common::calcTextWidth(hm, 3.f, 0)/2, y+60, hm, WHITE, 3.f, 0, NULL, 0);
+        y += 70;
+    }
+
+    static const char* days[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+    static const char* months[] = {"January", "February", "March", "April", "May", "June", "July",
+                                   "August", "September", "October", "November", "December"};
+    int dow = sceRtcGetDayOfWeek(now.year, now.month, now.day);
+    char num[8];
+    snprintf(num, sizeof(num), "%d ", now.day);
+    string date = TR(days[dow % 7]) + ", " + num + TR(string(months[(now.month+11) % 12]) + " of");
+    common::printText(240 - common::calcTextWidth(date.c_str(), SIZE_BIG, 0)/2, y+18, date.c_str(), WHITE, SIZE_BIG, 0, NULL, 0);
+
+    if (scePowerIsBatteryExist()){
+        char b[16];
+        snprintf(b, sizeof(b), "%d%%", scePowerGetBatteryLifePercent());
+        string bat = string(b) + (scePowerIsBatteryCharging()? "  " + TR("Charging") : "");
+        common::printText(240 - common::calcTextWidth(bat.c_str(), SIZE_LITTLE, 0)/2, y+38, bat.c_str(), 0xFFDDDDDD, SIZE_LITTLE, 0, NULL, 0);
+    }
+
+    Image* cc = common::getThemeImage(THEME_CC);
+    if (cc) common::drawSub(cc, 8*32, 0, 32, 32, 240-9, 18, 18, 18); // lock glyph
+    string hint = TR("Press any button");
+    common::printText(240 - common::calcTextWidth(hint.c_str(), SIZE_LITTLE, 0)/2, 256, hint.c_str(), 0xFFDDDDDD, SIZE_LITTLE, 0, NULL, 0);
+}
+
 void SystemMgr::drawScreen(){
 	if(common::getConf()->main_menu != 0) {
         common::drawScreen();
@@ -369,6 +422,7 @@ void SystemMgr::drawScreen(){
             }
         }
     }
+    else drawLockScreen();
 }
 
 static void *_sceImposeGetParam; // int (*)(int)
@@ -477,6 +531,20 @@ static int controlThread(SceSize _args, void *_argp){
             }
         } else if (stillLoading()){
             last_pressed = clock();
+        }
+
+        // sleep when idle
+        static const int standby_minutes[] = {0, 1, 3, 5, 10, 15, 30};
+        int standby = common::getConf()->standby;
+        // not while music plays, USB is connected or the FTP screen is open
+        bool busy = MusicPlayer::isPlaying() || USB::is_enabled || entries[cur_entry]->getName() == "Network";
+        if (standby > 0 && standby < 7 && !stillLoading() && !busy){
+            double idle = ((double)(clock() - last_pressed))/CLOCKS_PER_SEC;
+            if (idle > standby_minutes[standby]*60){
+                last_pressed = clock();
+                screensaver = 0;
+                scePowerRequestSuspend();
+            }
         }
 
         sceKernelDelayThread(0);

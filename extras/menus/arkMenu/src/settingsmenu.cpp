@@ -101,7 +101,34 @@ void SettingsMenu::draw(){
             this->max_height = (table->max_options>0 && table->max_options<PAGE_SIZE)? 20*(table->max_options+2) : 20*PAGE_SIZE;
             table->changed = 0;
         }
-        if (customText == NULL || ntext == 0){
+        if ((customText == NULL || ntext == 0) && index >= 0 && index < table->max_options
+                && table->settings_entries[index]->config_ptr == &(common::getConf()->wallpaper)){
+            // wallpaper preview: hide the list so the whole wallpaper shows, keep a floating picker
+            unsigned char sel = table->settings_entries[index]->selection;
+            string value = TR(table->settings_entries[index]->options[sel]);
+            string title = TR("Wallpaper");
+            int tw = common::calcTextWidth(value.c_str(), SIZE_BIG, 0);
+            int pw = max(tw + 70, 180), ph = 46;
+            int px = (480-pw)/2, py = 190;
+            common::getImage(IMAGE_DIALOG)->draw_scale(px, py, pw, ph);
+            int ttw = common::calcTextWidth(title.c_str(), SIZE_LITTLE, 0);
+            common::printText((480-ttw)/2, py+15, title.c_str(), 0xFFCCCCCC, SIZE_LITTLE, 0, NULL, 0);
+            common::printText(px+14, py+35, "<", WHITE, SIZE_BIG, 0, NULL, 0);
+            common::printText((480-tw)/2, py+35, value.c_str(), WHITE, SIZE_BIG, 0, NULL, 0);
+            common::printText(px+pw-24, py+35, ">", WHITE, SIZE_BIG, 0, NULL, 0);
+            if (sel == WALLPAPER_PHOTO && common::photoWallpaperMissing()){
+                string tip = TR("Open Photos, pick a photo and press Square");
+                int w2 = common::calcTextWidth(tip.c_str(), SIZE_LITTLE, 0) + 24;
+                common::getImage(IMAGE_DIALOG)->draw_scale((480-w2)/2, py-26, w2, 20);
+                common::printText((480-w2)/2+12, py-12, tip.c_str(), WHITE, SIZE_LITTLE, 0, NULL, 0);
+            }
+            // page dots for the wallpapers
+            int n = table->settings_entries[index]->max_options;
+            int dx = (480 - n*10 + 4)/2;
+            for (int i=0; i<n; i++)
+                ya2d_draw_rect(dx + i*10, py+ph+4, 6, 6, (i == sel)? WHITE : 0x70FFFFFF, 1);
+        }
+        else if (customText == NULL || ntext == 0){
             x = (480-MENU_W)/2;
             y = (272-max_height)/2;
 
@@ -214,7 +241,18 @@ void SettingsMenu::draw(){
     }
 }
         
+/* While this menu is open the background follows the picked wallpaper, saved or not */
+void SettingsMenu::updatePreview(){
+    for (int i=0; i<table->max_options; i++){
+        if (table->settings_entries[i]->config_ptr == &(common::getConf()->wallpaper)){
+            common::previewWallpaper(table->settings_entries[i]->selection);
+            return;
+        }
+    }
+}
+
 void SettingsMenu::control(Controller* pad){
+    updatePreview();
     
     if (pad->down()){
         if (table->max_options > 0){
@@ -300,6 +338,7 @@ void SettingsMenu::readConf(){
 
 void SettingsMenu::pause(){
     applyConf();
+    common::previewWallpaper(-1);
     if (this->close_callback){
         SystemMgr::pauseDraw();
         this->close_callback();

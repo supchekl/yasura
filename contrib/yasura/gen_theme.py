@@ -25,6 +25,7 @@ G = {
     "exit": 0xE879, "wifi": 0xE63E, "restore": 0xE8BA, "file": 0xE24D,
     "desc": 0xE873, "music": 0xE405, "image": 0xE3F4, "album": 0xE019,
     "archive": 0xE149, "check": 0xE5CA, "memory": 0xE322, "games": 0xE021,
+    "usb": 0xE1E0, "sdcard": 0xE623,
 }
 
 
@@ -211,25 +212,40 @@ def checkbox(on, size=12):
     return down(img, size, size)
 
 
-def wallpaper(w=480, h=272):
-    """Bright iOS 26 style wallpaper: deep blue to violet to warm coral, soft light blobs
-    and two glass ribbons. Mid tones keep white labels readable on the PSP LCD."""
+WALLPAPERS = {
+    # name: (top, bottom, glows as (x, y, radius, color, alpha), ribbon alpha scale)
+    "yasura": ((22, 44, 150), (70, 28, 120), [
+        (0.10, 0.10, 0.55, (40, 120, 255), 200), (0.55, 0.45, 0.50, (140, 70, 230), 170),
+        (0.95, 0.95, 0.55, (255, 110, 90), 190), (0.85, 0.05, 0.35, (255, 90, 170), 120),
+        (0.15, 1.00, 0.45, (20, 170, 220), 130)], 1.0),
+    "aurora": ((8, 40, 60), (20, 20, 70), [
+        (0.20, 0.20, 0.55, (30, 200, 150), 190), (0.65, 0.35, 0.45, (60, 230, 190), 140),
+        (0.90, 0.80, 0.55, (130, 70, 220), 180), (0.10, 0.95, 0.45, (20, 110, 200), 150)], 0.9),
+    "sunset": ((90, 30, 110), (230, 90, 60), [
+        (0.15, 0.15, 0.50, (150, 60, 200), 170), (0.70, 0.30, 0.50, (255, 100, 120), 180),
+        (0.50, 1.00, 0.60, (255, 170, 60), 200), (0.95, 0.85, 0.40, (255, 90, 60), 160)], 1.0),
+    "ocean": ((0, 70, 140), (0, 25, 70), [
+        (0.20, 0.10, 0.55, (0, 190, 240), 190), (0.80, 0.30, 0.45, (40, 120, 255), 170),
+        (0.40, 0.95, 0.55, (0, 220, 200), 150), (0.95, 0.95, 0.40, (30, 60, 200), 150)], 1.0),
+    "night": ((8, 10, 24), (4, 5, 12), [
+        (0.22, 0.30, 0.55, (58, 72, 210), 120), (0.85, 0.20, 0.45, (120, 60, 200), 95),
+        (0.70, 1.05, 0.55, (20, 120, 170), 85)], 0.8),
+}
+
+
+def wallpaper(w=480, h=272, style="yasura"):
+    """iOS 26 style wallpaper: a gradient, soft light blobs and two glass ribbons.
+    Mid tones keep white labels readable on the PSP LCD."""
     W, H = w * S // 2, h * S // 2
-    img = vgrad(W, H, (22, 44, 150, 255), (70, 28, 120, 255))
-    glows = [
-        (0.10, 0.10, 0.55, (40, 120, 255), 200),
-        (0.55, 0.45, 0.50, (140, 70, 230), 170),
-        (0.95, 0.95, 0.55, (255, 110, 90), 190),
-        (0.85, 0.05, 0.35, (255, 90, 170), 120),
-        (0.15, 1.00, 0.45, (20, 170, 220), 130),
-    ]
+    top, bottom, glows, rib = WALLPAPERS[style]
+    img = vgrad(W, H, top + (255,), bottom + (255,))
     for gx, gy, gr, col, a in glows:
         layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         r = gr * W
         ImageDraw.Draw(layer).ellipse((gx * W - r, gy * H - r * 0.8, gx * W + r, gy * H + r * 0.8), fill=col + (a,))
         img.alpha_composite(layer.filter(ImageFilter.GaussianBlur(W * 0.11)))
 
-    for amp, off, phase, thick, a in ((0.14, 0.50, 0.3, 0.22, 40), (0.10, 0.70, 2.0, 0.14, 30)):
+    for amp, off, phase, thick, a in ((0.14, 0.50, 0.3, 0.22, int(40 * rib)), (0.10, 0.70, 2.0, 0.14, int(30 * rib))):
         band = Image.new("L", (W, H), 0)
         edge = Image.new("L", (W, H), 0)
         top = []
@@ -315,6 +331,62 @@ def glass_overlay(size=64, full=False):
     rl.putalpha(ring.point(lambda v: v * 0.8))
     img.alpha_composite(rl)
     return img if full else down(img, size, size)
+
+
+def photos_icon(size=100, tile=84):
+    """The Photos app: a white squircle with a flower of translucent colored petals."""
+    B, T = size * S, tile * S
+    big = Image.new("RGBA", (B, B), (0, 0, 0, 0))
+    off = (B - T) // 2
+    mask = squircle_mask(T, T, T // 2)
+    sh = Image.new("L", (B, B), 0)
+    sh.paste(mask, (off, off + 3 * S))
+    shadow = Image.new("RGBA", (B, B), (0, 0, 30, 0))
+    shadow.putalpha(sh.point(lambda v: v * 0.45).filter(ImageFilter.GaussianBlur(4 * S)))
+    big.alpha_composite(shadow)
+    body = with_alpha(vgrad(T, T, (255, 255, 255, 255), (238, 238, 242, 255)), mask)
+    cols = [(255, 149, 0), (255, 204, 0), (165, 214, 63), (52, 199, 89), (48, 176, 199), (0, 122, 255), (175, 82, 222), (255, 55, 95)]
+    c = T / 2
+    pl, pw = T * 0.21, T * 0.115
+    for i, col in enumerate(cols):
+        petal = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+        ImageDraw.Draw(petal).ellipse((c - pw, c - pl * 2 - T * 0.01, c + pw, c - T * 0.01), fill=col + (190,))
+        body.alpha_composite(petal.rotate(-45 * i, center=(c, c), resample=Image.BICUBIC))
+    big.alpha_composite(body, (off, off))
+    big.alpha_composite(glass_overlay(tile, full=True), (off, off))
+    return down(big, size, size)
+
+
+def clock_digits(cell_w=44, h=72, px=78):
+    """Lock screen clock: 0-9 and ':' in thin Inter, one cell each (CLOCK.PNG)."""
+    f = font("/usr/share/fonts/opentype/inter/InterDisplay-Light.otf", px * S)
+    img = Image.new("RGBA", (cell_w * 11 * S, h * S), (0, 0, 0, 0))
+    for i, ch in enumerate("0123456789:"):
+        cx = (i + 0.5) * cell_w * S
+        sh = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        ImageDraw.Draw(sh).text((cx, h * S / 2 + S), ch, font=f, fill=(0, 0, 30, 110), anchor="mm")
+        img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(S * 1.5)))
+        ImageDraw.Draw(img).text((cx, h * S / 2), ch, font=f, fill=(255, 255, 255, 255), anchor="mm")
+    return down(img, cell_w * 11, h)
+
+
+def cc_glyphs(cell=32):
+    """Control center glyph strip (CCICONS.PNG): play, usb, moon, refresh, music, battery, card, bolt, lock."""
+    img = Image.new("RGBA", (cell * 9, cell), (0, 0, 0, 0))
+    big = cell * S
+    names = ["play", "usb", "moon", "refresh", "musical-notes", "battery-half", "sd", "flash", "lock-closed"]
+    for i, n in enumerate(names):
+        if n == "usb" or n == "sd":
+            g = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+            glyph(g, G["usb" if n == "usb" else "sdcard"], big / 2, big / 2, big * 0.8, shadow=False)
+            g = down(g, cell, cell)
+        else:
+            g = ion(n, cell * 0.78)
+            pad = Image.new("RGBA", (cell, cell), (0, 0, 0, 0))
+            pad.alpha_composite(g, ((cell - g.width) // 2, (cell - g.height) // 2))
+            g = pad
+        img.alpha_composite(g, (i * cell, 0))
+    return img
 
 
 def dock_panel():
@@ -517,6 +589,12 @@ def main():
     ]:
         ios_icon(svg, top, bottom).save(os.path.join(out, name))
     glass_overlay(64).save(os.path.join(out, "GLOSS.PNG"))
+    photos_icon().save(os.path.join(out, "PHOTOS.PNG"))
+    ios_icon("videocam", (70, 70, 84), (18, 18, 24)).save(os.path.join(out, "VIDEO.PNG"))
+    clock_digits().save(os.path.join(out, "CLOCK.PNG"))
+    cc_glyphs().save(os.path.join(out, "CCICONS.PNG"))
+    for i, style in enumerate(["aurora", "sunset", "ocean", "night"], start=1):
+        wallpaper(style=style).convert("RGB").save(os.path.join(out, "WALL%d.PNG" % i))
     dock_panel().save(os.path.join(out, "DOCK.PNG"))
     for name, (key, tint) in SMALL_TINTS.items():
         small_icon(G[key], tint).save(os.path.join(out, name))

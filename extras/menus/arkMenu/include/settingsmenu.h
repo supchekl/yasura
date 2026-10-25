@@ -71,6 +71,7 @@ class SettingsMenu : public SystemEntry{
         void control(Controller* pad);
         
         void pause();
+        void updatePreview();
         
         void resume();
         

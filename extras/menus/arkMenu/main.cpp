@@ -15,6 +15,7 @@
 #include "net_mgr.h"
 #include "ftp_driver.h"
 #include "exit_mgr.h"
+#include "media.h"
 #include "lang.h"
 
 #include "ark_settings.h"
@@ -26,7 +27,7 @@ PSP_HEAP_SIZE_KB(17*1024);
 
 using namespace std;
 
-#define MAX_ENTRIES 7
+#define MAX_ENTRIES 9
 static SystemEntry* entries[MAX_ENTRIES];
 
 extern "C" void my_malloc_init();
@@ -64,6 +65,12 @@ int main(int argc, char** argv){
     recovery += common::getArkConfig()->recovery;
 
     int n_entries = (recovery)?0:2;
+
+    // Photos and Videos
+    if (!recovery){
+        entries[n_entries++] = new MediaGallery(MEDIA_PHOTO);
+        entries[n_entries++] = new MediaGallery(MEDIA_VIDEO);
+    }
 
     // Setup FTP
     if (common::getPspModel() != PSP_11000 && !recovery){

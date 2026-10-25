@@ -44,6 +44,7 @@ OBJS = \
 	src/controller.o \
 	src/ya2d++.o \
 	src/browser.o \
+	src/media.o \
 	src/browser_entries.o \
 	src/osk.o \
 	src/usb.o \

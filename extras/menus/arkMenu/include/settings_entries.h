@@ -387,7 +387,39 @@ static struct {
     {"Disabled", "Enabled"}
 };
 
+/* Wallpaper entry, previewed live while selected */
+static struct {
+    char* description;
+    unsigned char max_options;
+    unsigned char selection;
+    unsigned char* config_ptr;
+    char* options[MAX_WALLPAPERS];
+} wallpaper = {
+    "Wallpaper",
+    MAX_WALLPAPERS,
+    0,
+    &(common::getConf()->wallpaper),
+    {"Yasura", "Aurora", "Sunset", "Ocean", "Night", "My photo"}
+};
+
+/* Sleep when idle entry */
+static struct {
+    char* description;
+    unsigned char max_options;
+    unsigned char selection;
+    unsigned char* config_ptr;
+    char* options[7];
+} standby = {
+    "Sleep when idle",
+    7,
+    0,
+    &(common::getConf()->standby),
+    {"Never", "1 min", "3 min", "5 min", "10 min", "15 min", "30 min"}
+};
+
 settings_entry* settings_entries[] = {
+    (settings_entry*)&wallpaper,
+    (settings_entry*)&standby,
     (settings_entry*)&language,
     (settings_entry*)&fast_gameboot,
     (settings_entry*)&font,

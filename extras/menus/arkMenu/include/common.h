@@ -33,6 +33,18 @@ enum colors {
     WEIRD_ORANGE = 0xFF2AB1FF
 };
 
+#define MAX_WALLPAPERS 6
+#define WALLPAPER_PHOTO 5
+
+/* optional images of the Yasura theme */
+enum {
+    THEME_PHOTOS,
+    THEME_VIDEO,
+    THEME_CLOCK, // digit strip for the lock screen clock: 0-9 and ':'
+    THEME_CC, // glyph strip for the control center
+    MAX_THEME_EXTRAS
+};
+
 enum images {
     IMAGE_BG,
     IMAGE_WAITICON,
@@ -114,6 +126,13 @@ namespace common{
     extern void drawSelection(int x, int y, int w, int h); // highlight behind a selected row
     extern Image* getDock(); // optional home screen dock backdrop, may be NULL
     extern Image* getCfwIcon(); // icon of the CFW settings app, falls back to the settings icon
+    extern Image* getThemeImage(int which); // optional Yasura images (THEME_*), may be NULL
+    extern Image* fitImage(Image* src, int w, int h, bool cover); // resample any 8888 image, works past the 512px GU limit
+    extern void drawSub(Image* img, int sx, int sy, int sw, int sh, int dx, int dy, int dw, int dh); // part of a texture, smooth
+    extern void previewWallpaper(int which); // show this wallpaper on the next frame only (settings preview)
+    extern void reloadWallpaper();
+    extern bool photoWallpaperMissing();
+    extern bool setPhotoWallpaper(Image* src); // save a photo as the custom wallpaper and switch to it
     extern Image* makeAppIcon(Image* src); // square iOS style app icon (squircle alpha) from an ICON0
     extern void drawAppIcon(Image* img, int x, int y, int size); // smooth scaled draw plus theme gloss
     extern void drawHints(string spec); // bottom button hint bar, spec is "X:Label;O:Label;..."

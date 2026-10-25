@@ -12,6 +12,8 @@
 #include "osk.h"
 #include "lang.h"
 #include "texteditor.h"
+#include "usb.h"
+#include <psppower.h>
 
 static GameManager* self = NULL;
 
@@ -33,6 +35,7 @@ GameManager::GameManager(){
     this->scanning = true;
     this->optionsmenu = NULL;
     this->dock_focus = -1;
+    this->cc_focus = -1;
 
     // initialize the categories
     this->selectedCategory = (common::getConf()->main_menu)? -2 : -1;
@@ -412,8 +415,8 @@ void GameManager::drawTabs(){
 /* Glass dock with every other launcher app: files, network, settings, plugins, exit */
 void GameManager::drawDock(){
     int n = 0;
-    SystemEntry* apps[8];
-    for (int i=0; i<8; i++){
+    SystemEntry* apps[12];
+    for (int i=0; i<12; i++){
         SystemEntry* e = SystemMgr::getSystemEntry(i);
         if (e == NULL) break;
         if (e == this) continue;
@@ -454,6 +457,7 @@ void GameManager::draw(){
         if (this->maxDraw > 0)
             drawDock();
         if (optionsmenu) optionsmenu->draw();
+        if (cc_focus >= 0) drawControlCenter();
     }
     else if (this->selectedCategory == -2){
         string s = TR("No games available");
@@ -505,7 +509,150 @@ void GameManager::gridMove(int dx, int dy){
     sceKernelDelayThread(90000); // held buttons repeat every frame, keep it walkable
 }
 
+enum { CC_USB, CC_SLEEP, CC_REFRESH, CC_MUSIC, CC_BUTTONS };
+/* glyphs in CCICONS.PNG, 32px cells */
+enum { GLYPH_PLAY, GLYPH_USB, GLYPH_MOON, GLYPH_REFRESH, GLYPH_MUSIC, GLYPH_BATTERY, GLYPH_CARD, GLYPH_BOLT, GLYPH_LOCK };
+
+static void ccGlyph(int glyph, int x, int y, int size){
+    Image* cc = common::getThemeImage(THEME_CC);
+    if (cc) common::drawSub(cc, glyph*32, 0, 32, 32, x, y, size, size);
+}
+
+static void deviceSpace(const char* dev, u64* total, u64* free){
+    struct {
+        u32 maxClusters, freeClusters, maxSectors, sectorSize, sectorCount;
+    } ds;
+    void* cmd = &ds;
+    memset(&ds, 0, sizeof(ds));
+    sceIoDevctl(dev, 0x02425818, &cmd, sizeof(cmd), NULL, 0);
+    u64 cluster = (u64)ds.sectorSize * ds.sectorCount;
+    *total = (u64)ds.maxClusters * cluster;
+    *free = (u64)ds.freeClusters * cluster;
+}
+
+/* iOS style control center: battery and memory widgets, quick toggles */
+void GameManager::drawControlCenter(){
+    ya2d_draw_rect(0, 0, 480, 272, 0x80000000, 1);
+    Image* box = common::getImage(IMAGE_DIALOG);
+    const int x0 = 44, y0 = 30, wide = 192, gap = 8;
+
+    // battery widget
+    box->draw_scale(x0, y0, wide, 100);
+    ccGlyph(GLYPH_BATTERY, x0+12, y0+10, 24);
+    common::printText(x0+42, y0+27, TR("Battery").c_str(), 0xFFDDDDDD, SIZE_LITTLE, 0, NULL, 0);
+    if (scePowerIsBatteryExist()){
+        int pct = scePowerGetBatteryLifePercent();
+        char big[8];
+        snprintf(big, sizeof(big), "%d%%", (pct < 0)? 0 : pct);
+        common::printText(x0+14, y0+64, big, WHITE, 2.0f, 0, NULL, 0);
+        bool charging = scePowerIsBatteryCharging();
+        if (charging) ccGlyph(GLYPH_BOLT, x0+wide-36, y0+40, 24);
+        int mins = scePowerGetBatteryLifeTime();
+        char line[48];
+        if (charging) snprintf(line, sizeof(line), "%s", TR("Charging").c_str());
+        else if (mins > 0) snprintf(line, sizeof(line), "%s %d:%02d", TR("Left").c_str(), mins/60, mins%60);
+        else line[0] = 0;
+        common::printText(x0+14, y0+82, line, 0xFFDDDDDD, SIZE_LITTLE, 0, NULL, 0);
+        int temp = scePowerGetBatteryTemp();
+        if (temp > 0 && temp < 100){
+            snprintf(line, sizeof(line), "%d°C", temp);
+            common::printText(x0+wide-14-common::calcTextWidth(line, SIZE_LITTLE, 0), y0+82, line, 0xFFDDDDDD, SIZE_LITTLE, 0, NULL, 0);
+        }
+        // level bar
+        ya2d_draw_rect(x0+14, y0+88, wide-28, 3, 0x40FFFFFF, 1);
+        u32 col = (pct <= 15)? 0xFF3C3CFF : (charging? 0xFF64D94C : WHITE);
+        ya2d_draw_rect(x0+14, y0+88, (wide-28)*max(0, pct)/100, 3, col, 1);
+    }
+    else common::printText(x0+14, y0+64, TR("No battery").c_str(), WHITE, SIZE_BIG, 0, NULL, 0);
+
+    // memory stick widget
+    int x1 = x0 + wide + gap;
+    box->draw_scale(x1, y0, wide, 100);
+    ccGlyph(GLYPH_CARD, x1+12, y0+10, 24);
+    common::printText(x1+42, y0+27, TR("Memory Stick").c_str(), 0xFFDDDDDD, SIZE_LITTLE, 0, NULL, 0);
+    static u64 total = 0, freeb = 0;
+    static clock_t checked = 0;
+    if (checked == 0 || clock() - checked > 5*CLOCKS_PER_SEC || clock() < checked){
+        deviceSpace("ms0:", &total, &freeb);
+        checked = clock();
+    }
+    string fr = common::beautifySize(freeb);
+    common::printText(x1+14, y0+62, fr.c_str(), WHITE, SIZE_BIG, 0, NULL, 0);
+    string of = TR("free of") + " " + common::beautifySize(total);
+    common::printText(x1+14, y0+80, of.c_str(), 0xFFDDDDDD, SIZE_LITTLE, 0, NULL, 0);
+    ya2d_draw_rect(x1+14, y0+88, wide-28, 3, 0x40FFFFFF, 1);
+    if (total) ya2d_draw_rect(x1+14, y0+88, (int)((wide-28)*(total-freeb)/total), 3, 0xFFFFC85A, 1);
+
+    // toggles
+    const int bw = (2*wide + gap - 3*gap)/4, bh = 72, by = y0 + 100 + gap;
+    bool music = MusicPlayer::isPlaying();
+    const char* labels[CC_BUTTONS] = {"USB", "Sleep", "Refresh", "Music"};
+    int glyphs[CC_BUTTONS] = {GLYPH_USB, GLYPH_MOON, GLYPH_REFRESH, GLYPH_MUSIC};
+    for (int i=0; i<CC_BUTTONS; i++){
+        int bx = x0 + i*(bw+gap);
+        bool on = (i == CC_USB && USB::is_enabled) || (i == CC_MUSIC && music);
+        if (i == cc_focus){
+            Image* plate = common::getPlate();
+            if (plate) plate->draw_scale(bx-4, by-4, bw+8, bh+8);
+        }
+        box->draw_scale(bx, by, bw, bh);
+        if (on) common::drawSelection(bx, by, bw, bh);
+        ccGlyph(glyphs[i], bx + bw/2 - 14, by + 10, 28);
+        string l = TR(labels[i]);
+        common::printText(bx + bw/2 - common::calcTextWidth(l.c_str(), SIZE_LITTLE, 0)/2, by+52, l.c_str(), WHITE, SIZE_LITTLE, 0, NULL, 0);
+        const char* state = NULL;
+        if (i == CC_USB) state = (USB::is_enabled)? "On" : "Off";
+        else if (i == CC_MUSIC) state = (music)? "Pause" : "Not playing";
+        if (state){
+            string st = TR(state);
+            common::printText(bx + bw/2 - common::calcTextWidth(st.c_str(), SIZE_LITTLE, 0)/2, by+65, st.c_str(), (on)? 0xFF64D94C : 0xFFAAAAAA, SIZE_LITTLE, 0, NULL, 0);
+        }
+    }
+}
+
+void GameManager::controlCenter(Controller* pad){
+    if (pad->decline() || pad->select()){
+        cc_focus = -1;
+        common::playMenuSound();
+    }
+    else if (pad->left()){
+        if (cc_focus > 0){ cc_focus--; common::playMenuSound(); }
+        sceKernelDelayThread(90000);
+    }
+    else if (pad->right()){
+        if (cc_focus < CC_BUTTONS-1){ cc_focus++; common::playMenuSound(); }
+        sceKernelDelayThread(90000);
+    }
+    else if (pad->accept()){
+        common::playMenuSound();
+        switch (cc_focus){
+            case CC_USB:
+                if (USB::is_enabled) USB::disable();
+                else USB::enable();
+                break;
+            case CC_SLEEP:
+                cc_focus = -1;
+                scePowerRequestSuspend();
+                break;
+            case CC_REFRESH:
+                cc_focus = -1;
+                this->waitIconsLoad();
+                GameManager::updateGameList(NULL);
+                this->waitIconsLoad();
+                break;
+            case CC_MUSIC:
+                if (MusicPlayer::isPlaying()) MusicPlayer::pauseResume();
+                break;
+        }
+    }
+}
+
 void GameManager::control(Controller* pad){
+
+    if (cc_focus >= 0){
+        controlCenter(pad);
+        return;
+    }
 
     if (selectedCategory == -2 && dock_focus < 0) dock_focus = 0; // no games, only the dock
     if (selectedCategory == -1) return;
@@ -525,7 +672,7 @@ void GameManager::control(Controller* pad){
         }
         else if (pad->accept()){
             int n = 0;
-            for (int i=0; i<8; i++){
+            for (int i=0; i<12; i++){
                 SystemEntry* e = SystemMgr::getSystemEntry(i);
                 if (e == NULL) break;
                 if (e == this) continue;
@@ -559,9 +706,7 @@ void GameManager::control(Controller* pad){
     else if (pad->select()){
         if (selectedCategory != -1){
             common::playMenuSound();
-            this->waitIconsLoad();
-            GameManager::updateGameList(NULL);
-            this->waitIconsLoad();
+            cc_focus = 0;
         }
     }
     else if (pad->square()){
