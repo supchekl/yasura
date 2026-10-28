@@ -68,7 +68,7 @@ cd yasura
 
 Готовое будет в `dist/`. Меню лежит в `extras/menus/arkMenu/`, тема в `extras/menus/arkMenu/themes/LiquidGlass/`, а картинки темы генерит скрипт `contrib/yasura/gen_theme.py`, там можно поменять цвета и формы.
 
-Основано на [ARK-4](https://github.com/PSP-Archive/ARK-4) ([оригинальный README](README_ARK-4.md)), значки по мотивам [Ionicons](https://ionic.io/ionicons).
+Основано на [ARK-4](https://github.com/PSP-Archive/ARK-4) ([оригинальный README](README_ARK-4.md)), значки по мотивам [Ionicons](https://ionic.io/ionicons). Лицензия GPL-3.0, как у ARK-4.
 
 ---
 

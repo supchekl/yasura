@@ -5,3 +5,7 @@
 *.prx
 *.rpm
 *.SFO
+
+# python bytecode
+__pycache__/
+*.pyc
