@@ -1,0 +1,53 @@
+name: Yasura
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'release/**'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full genisoimage python3-pycryptodome python3-ecdsa zlib1g-dev libmpfr-dev build-essential
+
+      - name: PSP SDK
+        run: |
+          sudo 7z x -y -o/usr/local ./contrib/PC/PSPSDK/pspdev.7z > /dev/null
+          sudo chown -R "$USER" /usr/local/pspdev
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libmpfr.so.6 /usr/lib/x86_64-linux-gnu/libmpfr.so.4
+          echo "/usr/local/pspdev/bin" >> "$GITHUB_PATH"
+
+      - name: sign_np
+        run: |
+          cd ..
+          git clone --depth 1 https://github.com/swarzesherz/sign_np.git
+          sed -i 's/o64/o/' sign_np/sign_np.c
+          make -C sign_np
+          cp sign_np/sign_np /usr/local/pspdev/bin/
+
+      - name: mkpsxiso
+        run: |
+          cd ..
+          curl -sSLO https://github.com/Lameguy64/mkpsxiso/releases/download/v2.03/mkpsxiso-2.03-Linux.deb
+          sudo apt-get install -y ./mkpsxiso-2.03-Linux.deb
+
+      - name: Build
+        run: make
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Yasura-dist
+          path: dist/
