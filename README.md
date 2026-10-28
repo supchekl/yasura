@@ -1,163 +1,125 @@
-![LOGO](https://github.com/user-attachments/assets/e0cd5cab-ff79-4c17-a903-544a4d2dd570)
+# Yasura 🌸
 
-# Archived: We moved over to [ARK-5](https://github.com/PSP-Arkfive/ARK-5) follow us to the future.
+**Своя прошивка (CFW) для PSP Street (PSP-E1000) на 6.61**, сделанная на основе [ARK-4](https://github.com/PSP-Archive/ARK-4). Лаунчер переделан в стиле iPhone: стеклянная тема, сетка иконок, док, Пункт управления, Фото, Видео, уведомления и плавные анимации.
 
-# ARK-4 e/CFW for the PSP and PS Vita.
+📦 **Скачать готовую сборку:** [Yasura-E1000.zip в Releases](https://github.com/supchekl/yasura/releases/latest)
 
-New, updated, improved and modern `Custom Firmware` for the `PSP` and `PS Vita`'s `ePSP`.
-Simple to use and full of unique features, `ARK CFW` aims at keeping the `PSP` experience fresh. Being a successor to `PRO` and `ME`,
-`ARK` is now the most feature-complete `CFW` for the `PSP`, having all features from classic `CFW`
-as well as unique and exclusive new features not found anywhere else.
+![Экраны Yasura](docs/yasura/yasura_apps_screens.png)
 
-### More Information in WIKI
-<a style="font-weight: bold; font-size:32px; text-decoration: underline;" href="https://github.com/PSP-Archive/ARK-4/wiki">ARK-4 WIKI</a>
-<br>
+![Анимации и уведомления](docs/yasura/yasura_animations.png)
 
-### Table of Contents (Quick Links)
-  * [FEATURES:](#features)
-  * [Installation on PSP](#installation-on-psp)
-  * [Installation on PS Vita](#installation-on-ps-vita)
-  * [Changelog](#changelog)
-  * [Warnings](#warnings)
+## ✨ Что внутри
 
-## FEATURES:
+- В «Сведениях о системе» XMB прошивка показывается как `6.61 Yasura (ARK-4)`.
+- По умолчанию выключены функции, связанные с Wi-Fi (`wpa2`, `hidemac`), потому что на E1000 Wi-Fi нет.
+- 📱 **Домашний экран как на iPhone**, включён по умолчанию: игры показаны сеткой 5×2 из скруглённых иконок с настоящими названиями игр, листаются страницами с точками внизу. Остальные приложения (Файлы, Фото, Видео, Сеть, Настройки ARK, Плагины, Настройки меню, Выход) лежат в стеклянном доке. Сверху прозрачная строка состояния: разделы «Игры / Программы / PS1» слева, время и батарея справа.
+- 🎨 Своя тема **Liquid Glass** в стиле iOS 26: яркие обои (синий, фиолетовый, коралловый) со стеклянными лентами и цветные иконки приложений со стеклянным бликом. Значки нарисованы по открытому набору Ionicons (лицензия MIT), который сделан под iOS. Скриншоты ниже.
+- Доработан сам лаунчер: панели теперь рисуются без растягивания углов (9-slice), под выбранной игрой появилась стеклянная подложка, текст стал белее, фоновые анимации и мигание текста по умолчанию выключены.
+- 🖼️ **Фото**: все снимки из папок `PICTURE` и `PSP/PHOTO` сеткой миниатюр. ✕ открывает снимок на весь экран, ← → листают, START включает слайд-шоу, □ делает снимок обоями. Очень большие фото (больше примерно 1 мегапикселя) PSP не тянет по памяти, они показываются значком.
+- 🎬 **Видео**: ролики из папки `VIDEO` с миниатюрами `.THM`, размером и датой. Сам лаунчер видео играть не умеет, MP4 открывает только стандартный плеер PSP в XMB, и карточка видео объясняет, как туда попасть.
+- 🌅 **Обои с предпросмотром**: «Настройки меню → Обои». Пока стоишь на этом пункте, список прячется и видно обои целиком, ← → переключают: Yasura, Аврора, Закат, Океан, Ночь и «Моё фото» (снимок, выбранный в «Фото» через □).
+- 😴 **Сон при простое**: «Настройки меню → Сон при простое»: никогда, 1, 3, 5, 10, 15 или 30 минут (по умолчанию 10). PSP не засыпает, пока играет музыка, включён USB или открыт экран FTP.
+- 🔒 **Экран блокировки**: через 30 секунд без нажатий (меняется в «Настройки меню → Время до фоновой заставки») появляются большие часы, дата и заряд, любая кнопка возвращает обратно.
+- 🎛️ **Пункт управления**: SELECT на домашнем экране, выезжает сверху и уезжает обратно. Заряд батареи, сколько осталось и температура, свободное место на карте, кнопки USB, Сон, Обновить список игр, Музыка (пауза) и Поиск.
+- ✨ **Плавные анимации как в iOS**: иконки игр всплывают по очереди при входе и смене раздела, подсветка плавно переезжает между иконками и пунктами настроек, страницы листаются сдвигом, док выезжает снизу, приложения из дока раскрываются из своей иконки, фото в просмотре увеличиваются при открытии и въезжают сбоку при листании, экран блокировки уезжает вверх.
+- 🔍 **Поиск игр**: «Пункт управления → Поиск», вводишь часть названия, и меню сразу переходит к первой найденной игре в нужном разделе, а сверху пишет, сколько нашлось.
+- 🔔 **Уведомления**: стеклянный баннер сверху, как на iPhone. Сообщает, когда подключили или отключили зарядку, когда заряд упал до 20% и 10%, когда включили USB, обновили список игр или поставили обои.
+- 📸 **Снимок экрана**: зажми **L + R** вместе в любом месте лаунчера, снимок сохранится в `PICTURE/Yasura/` и сразу появится в «Фото».
+- 💡 **Подсказки кнопок** внизу каждого экрана: стеклянная полоска с иконками ✕ ○ △ □ L R SELECT и подписью, что кнопка делает именно здесь. Подсказки меняются, когда открываешь меню или переходишь в другой раздел.
+- 🎮 **Карточка игры**: при нажатии ✕ на игре сначала открывается карточка с названием, типом (PSP ISO, PS1, PSN, homebrew), ID игры, размером и путём. ✕ ещё раз запускает игру, ○ возвращает назад.
+- Спокойное оформление: выбранный пункт во всех меню подсвечивается стеклянной плашкой вместо мигающего светящегося текста, панели аккуратнее, лишние значки убраны.
+- Обои для XMB в том же стиле: `PICTURE/Yasura_Glass.png`.
+- Убрано всё, что к E1000 не относится: сборки для PS Vita, ARK_DC (для него нужна Pandora, а E1000 её не поддерживает) и аддон ядра 1.50 (он только для PSP-1000).
 
-- Compatible with every `PSP` model (including toolkits, excluding Strider2) and every `PS Vita` model.
+Остальное работает как в обычном ARK-4: ISO/CSO, PS1-игры, плагины, VSH-меню, свой лаунчер и темы.
 
-- Support for `homebrew` and `plugins`, compatible with legacy 1.50 software.
+## 🧰 Что нужно
 
-- Heavily optimized `Inferno 2` ISO Driver.
+- PSP-E1000 с официальной прошивкой **6.61** (проверить можно в «Настройки → Сведения о системе»). Если прошивка старее, обнови её до 6.61 официальным апдейтом с карты памяти.
+- Карта Memory Stick Pro Duo и USB-кабель.
+- Батарея заряжена больше чем на 75%.
 
-- Custom `PS1` games supported via the `Popcorn` Controller.
+## 🚀 Установка (live-режим, безопасно)
 
-- Built-in game fixes using the anti-CFW engine `Stargate`.
+1. Подключи PSP к компьютеру через «USB-соединение».
+2. Скачай `Yasura-E1000.zip` из [Releases](https://github.com/supchekl/yasura/releases/latest), распакуй и скопируй содержимое папки `memstick/` в корень карты памяти. Получится:
+   - `PSP/SAVEDATA/ARK_01234/`
+   - `PSP/GAME/ARK_Loader/`
+3. На PSP открой «Игра → Memory Stick → ARK Loader».
+4. Консоль перезагрузится с CFW. Проверь «Сведения о системе», там должна быть строка `6.61 Yasura (ARK-4)`.
 
-- `New cIPL` compatible with all PSP models, for a true permanent CFW with enhanced brick protection.
+В live-режиме CFW слетает после полного выключения (не «сна»), и тогда ARK Loader нужно запустить заново. Флеш консоли в этом режиме не меняется.
 
-- Includes `Despertar del Cementerio Version 10`, allowing to unbrick any PSP.
+## 🔧 Постоянная установка (cIPL, по желанию)
 
-- `Custom game launcher` useful when the XMB isn't available or lacks a certain feature.
- 
-- `OTA` updates. Fully updateable via the internet.
+Новый ARK-4 умеет ставить cIPL на все модели, включая E1000 (11g). После этого CFW загружается сама при включении.
 
+⚠️ **Внимание:** cIPL записывает загрузчик во флеш консоли. Если в процессе сядет батарея или выключится питание, можно получить кирпич, а Pandora на E1000 его не вылечит. Сначала поживи на live-версии и убедись, что всё работает.
 
-![CFW Settings](.github/screenshots/cfw_settings.bmp "CFW Settings")
-![cIPL](https://github.com/PSP-Archive/ARK-4/wiki/.res/system_settings.bmp "System Info")
+1. Загрузи CFW через ARK Loader.
+2. Скопируй `extras/ARK_cIPL` в `PSP/GAME/`.
+3. Запусти его из XMB и нажми кнопку установки. Удаляется cIPL тем же приложением.
+4. Если при включении держать **Home**, загрузится официальная прошивка.
 
-#### Installation On PSP
+Альтернатива без cIPL: Infinity 2 (https://github.com/DaveeFTW/Infinity), тоже даёт автозагрузку на 6.61.
 
-##### Installation from Custom Firmware
-- If 6.61 PRO or ME is already installed.
-- For any earlier CFW, update to latest 6.61 firmware and use instructions below for Official Firmware.
-- Install DC-ARK (see bellow).
-- Install New cIPL (see bellow).
-- PowerOff console and power it back on while holding L button.
-- Use DC to do a fresh and full install of 6.61 ARK.
+## 🪟 Стеклянный дизайн
 
-##### Installation from Official Firmware
-- If no custom firmware is installed (PSP is original).
-- Copy `ARK_01234` folder into `/PSP/SAVEDATA/` folder.
-- Copy `ARK_Loader` folder into `/PSP/GAME/` folder.
-- Launch `ARK Loader`. It will install ARK modules on PSP Flash and boot the CFW.
-- At this point `ARK` will work as a `Live CFW`, meaning that `ARK Loader` will need to be run every time the console is turned off or rebooted.
-- To convert `ARK` into a `Permanent CFW` you can use `cIPL`.
+Тема Liquid Glass уже лежит в `ARK_01234/THEME.ARK`, и лаунчер ARK со стеклянным меню включён по умолчанию (`always, launcher, on` в `SETTINGS.TXT`). Чтобы вернуть обычный XMB, поменяй `on` на `off`.
 
+**При обновлении со старой версии** удали старую папку `PSP/SAVEDATA/ARK_01234` целиком и скопируй новую. Лаунчер хранит свои настройки в `ARKMENU.BIN`, и если оставить старый файл, на экране останутся старые настройки, например точки на фоне.
 
-##### Permanent CFW via cIPL
+Обои для XMB: открой «Фото → Memory Stick», выбери `Yasura_Glass`, нажми △ и выбери «Установить как обои». Иконки самого XMB стеклянными так не сделать, для этого нужна тема XMB в формате CTF.
 
-- Works on all PSP models, including testkits and devkits.
-- Installer will choose the correct version according to your model.
-- Some models can install either the Classic cIPL or the New cIPL.
-- Copy `ARK_cIPL` folder to `/PSP/GAME/` and run the program.
-- Press the corresponding button in the installation page to install or remove the cIPL patch.
+Свои обои проще всего поставить через «Фото»: открой снимок и нажми □. Они сохраняются в `PSP/SAVEDATA/ARK_01234/WALL.RAW`. Старый способ тоже работает: PNG 480×272 как `PSP/SAVEDATA/ARK_01234/BG.PNG` и пункт «Моё фото» в обоях.
 
+## 📁 Что в архиве
 
-##### Full Flash and Classic Installations
+- `memstick/`: всё, что копируется на карту памяти.
+- `extras/ARK_cIPL`, `ARK_Full_Installer`, `ARK_Uninstaller`, `FinalSpeed`: установщики и утилиты ARK-4.
+- `extras/themes`: темы для лаунчера, среди них `LiquidGlass`. Чтобы сменить тему, положи нужный `THEME.ARK` в `PSP/SAVEDATA/ARK_01234/`.
+- `source/`: патч с изменениями относительно ARK-4 и генератор темы.
+- `preview/`: скриншоты.
 
-- This only make sense when combined with a permanent intallation (cIPL). It doesn't make sense on PSP Go with a healthy Internal Memory.
-- This allows you to install and use all of ARK's features on the console's internal flash memory, except for Custom Launcher and translations.
-- Copy `ARK_Full_Installer` to `/PSP/GAME/` and run it from `ARK`. It will install some extra files into the console's flash.
-- If the `Custom Launcher` is not available (i.e. you delete the ARK savedata or remove the memory card), `PRO Shell` will take its place.
-- When no savedata folder is available the default ARK path used to store settings will be `ms0:/SEPLUGINS/`.
-- Even if files are stored in the console's flash memory, the ones in the savedata folder will still take priority in loading.
-- If at this point you get rid of ARK's savedata then you will have a Classic Installation (ARK will behave much like your Classic CFW such as PRO or ME).
+## 🕹️ Кнопки в лаунчере
 
+Внизу экрана всегда видно, что делает каждая кнопка. Коротко:
 
-##### Time Machine and Despertar del Cementerio
+- **Домашний экран**: крестовина выбирает игру (вправо с последней иконки листает на следующую страницу), ✕ открывает карточку игры, □ меню игры (информация, переименовать, удалить), **L / R** переключают раздел (Игры, Программы, PS1), SELECT открывает Пункт управления, △ главное меню.
+- **Фото**: крестовина выбирает снимок, L / R листают страницами, ✕ открыть, SELECT пересканировать папку. В просмотре ← → листать, □ сделать обоями, START слайд-шоу, ○ назад.
+- **Док**: вниз с нижнего ряда иконок, ← → выбрать приложение, ✕ открыть, ↑ или ○ вернуться к играм.
+- **Главное меню (△)**: ← → выбрать раздел, ✕ открыть, ○ закрыть.
+- **L + R вместе**: снимок экрана в «Фото».
+- **Файлы**: ✕ открыть, ○ папка вверх, □ отметить файл, **L** действия (копировать, вырезать, удалить, переименовать, USB).
+- **Настройки**: ↑ ↓ выбрать, ← → изменить значение, ✕ сохранить, □ сбросить.
 
-- `Time Machine` allows the ability to boot the `6.61` firmware and `ARK` entirely from the Memory Stick.
-- `Despertar del Cementerio` allows the ability to revive a bricked PSP when used in combination with a `Pandora` or `Baryon Sweeper`.
-- You can install `DC-ARK` either using a `PSP` or a `PC` (Windows, Mac and Linux).
-- On `PSP` you need to be running a `CFW` to install `DC-ARK` (ARK itself or any other).
-- Copy the `ARK_DC` folder to the `/PSP/GAME/` folder and run the installer from the `XMB`.
-- Copy the 6.61 Official Firmware Update by Sony renamed to `661.PBP` at the root of the memory stick.
-- Follow the instructions to install DC-ARK and create a magic memory stick.
-- On `PC`, you need `Python 3` and run `MagicMemoryCreator` with `admin`/`root` privileges.
-- You can use New cIPL to boot into DC-ARK by holding L-trigger when powering on.
-- Or use a `Pandora` or `Baryon Sweeper` in combination with your newly created `Magic Memory Stick` to boot up `Despertar del Cementerio`.
-- On compatible models, you can use `Advanced VSH Menu` to create a `Pandora Battery`.
-- From here you can either boot ARK from memory stick, install 6.61 Firmware with ARK on the NAND or install 6.61 Official Firmware.
+## 📌 Полезное
 
+- **Select** в XMB открывает VSH-меню (разгон, USB-устройство, перезагрузка, Recovery-меню).
+- ISO игры кладутся в папку `ISO/` в корне карты, PS1-игры в `PSP/GAME/` в формате EBOOT.
 
-#### Installation On PS Vita
+## 🛠️ Собрать из исходников
 
-There are two types of installation on PS Vita. You can use either one or both.
-<br>Stanalone works on top of the original unmodified pspemu.
-<br>You an also run ARK within Adrenaline to achieve a Hybrid CFW.
+Это полный исходный код прошивки: ARK-4 с изменениями Yasura. На Ubuntu 24.04:
 
+```bash
+git clone --recursive https://github.com/supchekl/yasura
+cd yasura
+./build-yasura.sh
+```
 
-##### Standalone (Official PSPEmu)
+Скрипт ставит родной тулчейн ARK-4 (psp-gcc 4.3.2), `sign_np` и `mkpsxiso` и собирает прошивку. Готовые файлы окажутся в `dist/`.
 
-- Works on Firmware 3.60 up to 3.74, requires Henkaku/h-encore or any native hack.
-- Download and install <a href="https://github.com/Kethen/NoPspEmuDrm/releases/tag/2025-07-02">NoPspEmuDrm_mod</a> (you can use AutoPlugin2).
-- Copy `FasterARK.vpk` from `PSVita/` folder anywhere on your vita and install using `VitaShell`. 
-- Launch `FasterARK` and wait for the install process to finish.
-- Both `ARK` and `ARK-X` bubbles will appear in `Live Area`.
-- Use the `ARK` bubble for `PSP` games and homebrew. It can play `PS1` but with limitations related to sound playback.
-- Use the `ARK-X` bubble for `PS1` games without any sound limitations.
-- Once `ARK` bubbles are installed, you can delete `FasterARK`.
-- To `exit` from a game or homebrew back to the `custom launcher`, press `L+R+Down+Start` (on `ARK-X` use `L2+R2+Down+Start` or `L1+R1+Start+Down` for `VitaTV`).
-- NOTE: Some features are not available in standalone installations, mainly the official Sony `XMB`.
-- NOTE: If you want to have an `ARK` bubble that works on `Official Firmware` you must use `ChovySign` with a valid license. Instructions in Wiki.
+Где что лежит:
 
+- `extras/menus/arkMenu/`: лаунчер (домашний экран, док, Пункт управления, Фото, Видео, настройки).
+- `extras/menus/arkMenu/themes/LiquidGlass/`: тема Liquid Glass.
+- `contrib/yasura/gen_theme.py`: генератор темы. Рисует все картинки на Python (Pillow и cairosvg), значки берёт из Ionicons, так что цвета и форму можно поменять прямо в коде.
 
-##### Adrenaline (Patched PSPEmu)
+## 📜 Лицензия и благодарности
 
-- Works on Firmware 3.60 up to 3.74, requires Henkaku/h-encore and <a href="https://github.com/isage/Adrenaline">Adrenaline</a> (Isage's fork is recommended, but original will work too).
-- Install `ARK_01234` folder into `pspemu/PSP/SAVEDATA/` folder if it isn't already there.
-- Install `ARK_Loader` folder into `pspemu/PSP/GAME/` folder.
-- To make ARK-4 automatically load with Adrenaline there are two options.
-- (Option 1, new method) Rename `ARK_Loader` to `BOOT`. Go to Adrenaline's Recovery Menu and in the Configuration page enable the `Autorun program` option. This only works on newer Adrenaline versions as the feature isn't implemented in older versions.
-- (Option 2, old method) Use <a href="https://github.com/ONElua/AdrenalineBubbleManager/releases">Adrenaline Bubbles Manager</a> to create an autoboot bubble for `ARK Loader`. This method is deprecated as it will install an older version of Adrenaline.
-- Note: this does not permanently modify `Adrenaline` in any way.
+Yasura основана на [ARK-4](https://github.com/PSP-Archive/ARK-4) от команды PSP-Archive и распространяется на тех же условиях, что и ARK-4. Оригинальное описание ARK-4 лежит в [README_ARK-4.md](README_ARK-4.md). Значки темы нарисованы по набору [Ionicons](https://ionic.io/ionicons) (MIT).
 
+---
 
-#### Updating ARK
-
-##### There are three ways to update ARK:
-
-- Option 1: Use the `System Update` ( `ARK-4 Updater` ) feature in the XMB. Requires your PSP/Vita to be connected to the internet.
-- Option 2: Copy the `UPDATE` folder to `/PSP/GAME/` and run it.
-- Option 3: Copy `ARK_01234` folder and (on PSP) run `ARK Loader` again to install new flash0 files.
-
-#### Changelog
-
-- `ARK-1`: original port/rewrite of `PRO CFW` for the `PS Vita`. Codenamed `PROVITA`. Source code can be found here: https://github.com/PSP-Archive/ARK-1-PROVita-
-- `ARK-2`: dynamic patching allows it to work with most of `PS Vita` firmwares. Source code can be found here: https://github.com/PSP-Archive/ARK-2
-- `ARK-3`: device-specific runtime allows `ARK` to run in multiple scenarios (`ePSP` and `ePSX`). Source code can be found here: https://github.com/PSP-Archive/ARK-3
-- `ARK-4`: ported to the original `PSP`. Huge amounts of improvements and fixes over previous versions.
-
-`Note`: this is a simplified `changelog`, for a full version you can visit here: https://github.com/PSP-Archive/ARK-4/blob/main/CHANGELOG.md
-
-
-#### Warnings
-<p>
-
-- ARK comes with no warranty whatsoever. It was designed to be noob-proof, however it is possible for the universe to create an even greater noob capable of using ARK to destroy the Earth (or his PSP). I cannot be held responsible for this.
-
-- ARK may cause ejectile malfunction if your hard drive is not hard enough.
-
-- If this software malfunctions, you can turn it off and on again.
-
-- ARK does not delete itself.
-</p>
+Сделал **Supchekl** 💜
