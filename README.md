@@ -6,9 +6,9 @@
 
 📦 **Скачать:** [Yasura-E1000.zip](https://github.com/supchekl/yasura/raw/main/release/Yasura-E1000.zip)
 
-![Как выглядит](docs/yasura/yasura_apps_screens.png)
+Так это выглядит на моей PSP:
 
-![Анимации](docs/yasura/yasura_animations.png)
+![Yasura на PSP](docs/yasura/yasura_real_psp.png)
 
 ## Что тут есть
 

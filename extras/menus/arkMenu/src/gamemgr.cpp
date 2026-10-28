@@ -594,7 +594,9 @@ void GameManager::drawControlCenter(){
         int mins = scePowerGetBatteryLifeTime();
         char line[48];
         if (charging) snprintf(line, sizeof(line), "%s", TR("Charging").c_str());
-        else if (mins > 0) snprintf(line, sizeof(line), "%s %d:%02d", TR("Left").c_str(), mins/60, mins%60);
+        else if (scePowerIsPowerOnline()) snprintf(line, sizeof(line), "%s", TR("Plugged in").c_str());
+        // the estimate is garbage right after plugging or unplugging, a PSP battery never lasts a day
+        else if (mins > 0 && mins < 24*60) snprintf(line, sizeof(line), "%s %d:%02d", TR("Left").c_str(), mins/60, mins%60);
         else line[0] = 0;
         common::printText(x0+14, y0+82, line, 0xFFDDDDDD, SIZE_LITTLE, 0, NULL, 0);
         int temp = scePowerGetBatteryTemp();
