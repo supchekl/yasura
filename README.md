@@ -2,7 +2,7 @@
 
 Кастомная прошивка для PSP Street (E1000) на 6.61. В основе обычный [ARK-4](https://github.com/PSP-Archive/ARK-4), а меню переделано под айфон: стеклянная тема, иконки сеткой, док снизу, пункт управления, фото, видео и плавные анимации.
 
-📦 **Скачать:** [Yasura-E1000.zip](https://github.com/supchekl/yasura/raw/main/release/Yasura-E1000.zip)
+📦 **Скачать версию 1.0:** [страница релиза](https://github.com/supchekl/yasura/releases/latest) или сразу [Yasura-E1000.zip](https://github.com/supchekl/yasura/raw/main/release/Yasura-E1000.zip)
 
 Так это выглядит на живой PSP:
 
