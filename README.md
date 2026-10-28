@@ -2,7 +2,7 @@
 
 **Своя прошивка (CFW) для PSP Street (PSP-E1000) на 6.61**, сделанная на основе [ARK-4](https://github.com/PSP-Archive/ARK-4). Лаунчер переделан в стиле iPhone: стеклянная тема, сетка иконок, док, Пункт управления, Фото, Видео, уведомления и плавные анимации.
 
-📦 **Скачать готовую сборку:** [Yasura-E1000.zip в Releases](https://github.com/supchekl/yasura/releases/latest)
+📦 **Скачать готовую сборку:** [Yasura-E1000.zip](https://github.com/supchekl/yasura/raw/main/release/Yasura-E1000.zip) (папка `release/`)
 
 ![Экраны Yasura](docs/yasura/yasura_apps_screens.png)
 
@@ -42,7 +42,7 @@
 ## 🚀 Установка (live-режим, безопасно)
 
 1. Подключи PSP к компьютеру через «USB-соединение».
-2. Скачай `Yasura-E1000.zip` из [Releases](https://github.com/supchekl/yasura/releases/latest), распакуй и скопируй содержимое папки `memstick/` в корень карты памяти. Получится:
+2. Скачай [Yasura-E1000.zip](https://github.com/supchekl/yasura/raw/main/release/Yasura-E1000.zip), распакуй и скопируй содержимое папки `memstick/` в корень карты памяти. Получится:
    - `PSP/SAVEDATA/ARK_01234/`
    - `PSP/GAME/ARK_Loader/`
 3. На PSP открой «Игра → Memory Stick → ARK Loader».
